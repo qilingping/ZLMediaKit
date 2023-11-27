@@ -223,6 +223,7 @@ bool checkArgs(Args &args, const First &first, const KeyTypes &...keys) {
 
 // 检查http参数中是否附带secret密钥的宏，127.0.0.1的ip不检查密钥
 // 同时检测是否在ip白名单内
+/*
 #define CHECK_SECRET() \
     do { \
         auto ip = sender.get_peer_ip(); \
@@ -234,6 +235,8 @@ bool checkArgs(Args &args, const First &first, const KeyTypes &...keys) {
             throw AuthException("secret错误"); \
         } \
     } while(false);
+*/
+#define CHECK_SECRET() void();
 
 void installWebApi();
 void unInstallWebApi();

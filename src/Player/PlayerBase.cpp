@@ -12,6 +12,7 @@
 #include "PlayerBase.h"
 #include "Rtsp/RtspPlayerImp.h"
 #include "Rtmp/RtmpPlayerImp.h"
+#include "Dji/DjiLivePlayer.h"
 #include "Rtmp/FlvPlayer.h"
 #include "Http/HlsPlayer.h"
 #include "Http/TsPlayerImp.h"
@@ -62,6 +63,10 @@ PlayerBase::Ptr PlayerBase::createPlayer(const EventPoller::Ptr &in_poller, cons
         if (end_with(url, ".flv") || end_with(url_in, ".flv")) {
             return PlayerBase::Ptr(new FlvPlayerImp(poller), releasePlayer);
         }
+    }
+
+    if (strcasecmp("dji", prefix.data()) == 0) {
+        return PlayerBase::Ptr(new DjiLivePlayer(poller), releasePlayer);
     }
 
     throw std::invalid_argument("not supported play schema:" + url_in);

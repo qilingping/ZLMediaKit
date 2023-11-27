@@ -15,6 +15,8 @@
 #include "Rtmp/RtmpPlayer.h"
 #include "Rtsp/RtspMediaSource.h"
 #include "Rtsp/RtspPlayer.h"
+#include "Dji/DjiLivePlayer.h"
+#include "Dji/DjiMediaSource.h"
 #include "Util/MD5.h"
 #include "Util/logger.h"
 #include "Util/mini.h"
@@ -193,6 +195,10 @@ void PlayerProxy::setDirectProxy() {
     } else if (dynamic_pointer_cast<RtmpPlayer>(_delegate)) {
         // rtmp拉流,rtmp强制直接代理
         mediaSource = std::make_shared<RtmpMediaSource>(_tuple);
+    } else if (dynamic_pointer_cast<DjiLivePlayer>(_delegate)) {
+        // rtmp拉流,rtmp强制直接代理
+        WarnL << "setDirectProxy dji.....";
+        mediaSource = std::make_shared<DjiMediaSource>(_tuple);
     }
     if (mediaSource) {
         setMediaSource(mediaSource);
@@ -301,6 +307,7 @@ void PlayerProxy::onPlaySuccess() {
     auto videoTrack = getTrack(TrackVideo, false);
     if (videoTrack) {
         // 添加视频
+        WarnL << "videoTrack, videoTrack";
         _muxer->addTrack(videoTrack);
         // 视频数据写入_mediaMuxer
         videoTrack->addDelegate(_muxer);

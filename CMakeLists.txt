@@ -445,6 +445,9 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 # for assert.h
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/3rdpart)
 
+#for dji edge sdk
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/3rdpart/Edge-SDK/include)
+
 add_subdirectory(3rdpart)
 
 add_subdirectory(src)
