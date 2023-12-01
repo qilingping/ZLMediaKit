@@ -45,7 +45,7 @@ target_compile_definitions(zlmediakit
 target_compile_options(zlmediakit
   PRIVATE ${COMPILE_OPTIONS_DEFAULT})
 target_link_libraries(zlmediakit
-  PUBLIC ${LINK_LIBRARIES} ${CMAKE_CURRENT_SOURCE_DIR}/../3rdpart/Edge-SDK/lib/x86_64/libedgesdk.a)
+  PUBLIC ${LINK_LIBRARIES} ${CMAKE_CURRENT_SOURCE_DIR}/../3rdpart/Edge-SDK/lib/aarch64/libedgesdk.a)
 target_include_directories(zlmediakit
   PRIVATE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
