@@ -67,10 +67,10 @@ void DjiLivePlayer::setMediaSource(const MediaSource::Ptr &src)
 
 edge_sdk::ErrorCode DjiLivePlayer::streamCallback(const uint8_t* data, size_t len) 
 {
+    // 0x00 0x00 0x00 0x01 0x67 ...
     H264Frame::Ptr frame = FrameImp::create<H264Frame>();
     frame->_prefix_size = 4;
-    frame->_buffer.assign("\x00\x00\x00\x01", 4);  //添加264头
-    frame->_buffer.append((const char*)data, len);
+    frame->_buffer.assign((const char*)data, len);
 
     _poller->async([this, frame](){
         _video_track->inputFrame(frame);
