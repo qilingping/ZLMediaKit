@@ -23,11 +23,33 @@ void DjiLivePlayer::play(const std::string &url)
         _video_track = std::make_shared<H264Track>();
     }
 
-    _poller->async([this](){
-        toolkit::SockException err; 
-        WarnL << "exec result";
-        _on_play_result(err);
-    });
+    setCameraSource(edge_sdk::Liveview::kCameraSourceWide);
+
+    edge_sdk::ErrorCode errCode = liveInit(edge_sdk::Liveview::kCameraTypePayload, edge_sdk::Liveview::kStreamQuality720p);
+    if (errCode != edge_sdk::kOk) {
+        _poller->async([this, errCode](){
+            toolkit::SockException err(Err_other); 
+            WarnL << "live view init failed, err:" << (uint32_t)errCode;
+            _on_play_result(err);
+        });
+
+        return;
+    }
+
+    errCode = liveStart();
+    if (errCode != edge_sdk::kOk) {
+        _poller->async([this, errCode](){
+            toolkit::SockException err(Err_other); 
+            WarnL << "live view start failed, err:" << (uint32_t)errCode;
+            _on_play_result(err);
+        });
+
+        return;
+    }
+
+
+
+
 }
 
 void DjiLivePlayer::pause(bool pause)
@@ -41,6 +63,11 @@ void DjiLivePlayer::speed(float speed)
 }
 
 void DjiLivePlayer::teardown()
+{
+    
+}
+
+edge_sdk::ErrorCode DjiLivePlayer::setCameraSource(edge_sdk::Liveview::CameraSource source)
 {
     
 }
