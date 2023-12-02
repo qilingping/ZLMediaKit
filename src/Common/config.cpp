@@ -356,6 +356,55 @@ const string kPlayTrack = "play_track";
 const string kProxyUrl = "proxy_url";
 } // namespace Client
 
+namespace Dji {
+#define DJI_PROXY_FIELD "dji."
+const string kAppName = DJI_PROXY_FIELD "appName";
+const string kAppId = DJI_PROXY_FIELD "appId";
+const string kAppKey = DJI_PROXY_FIELD "appKey";
+const string kAppLicense = DJI_PROXY_FIELD "appLicense";
+const string kDeveloperAccount = DJI_PROXY_FIELD "developerAccount";
+
+static onceToken token([]() {
+    mINI::Instance()[kAppName] = "";
+    mINI::Instance()[kAppId] = "";
+    mINI::Instance()[kAppKey] = "";
+    mINI::Instance()[kAppLicense] = "";
+    mINI::Instance()[kDeveloperAccount] = "";
+});
+} // namespace Dji
+
+namespace Gb28181 {
+#define GB28181_PROXY_FIELD "gb28181."
+const string kDeviceId = GB28181_PROXY_FIELD "deviceId";
+const string kChannelId = GB28181_PROXY_FIELD "channelId";
+const string kLocalIp = GB28181_PROXY_FIELD "localIp";
+const string kLocalPort = GB28181_PROXY_FIELD "localPort";
+const string kSipTransportType = GB28181_PROXY_FIELD "sipTransportType";
+const string kPublicIp = GB28181_PROXY_FIELD "publicIp";
+
+static onceToken token([]() {
+    mINI::Instance()[kDeviceId] = "";
+    mINI::Instance()[kChannelId] = "";
+    mINI::Instance()[kLocalIp] = "0.0.0.0";
+    mINI::Instance()[kLocalPort] = 5060;
+    mINI::Instance()[kSipTransportType] = "UDP";
+    mINI::Instance()[kPublicIp] = "";
+});
+} // namespace Gb28181
+
+namespace Register {
+#define REGISTER_PROXY_FIELD "register."
+const string kUasId = REGISTER_PROXY_FIELD "uasId";
+const string kUasIp = REGISTER_PROXY_FIELD "uasIp";
+const string kUasPort = REGISTER_PROXY_FIELD "uasPort";
+
+static onceToken token([]() {
+    mINI::Instance()[kUasId] = "";
+    mINI::Instance()[kUasIp] = "";
+    mINI::Instance()[kUasPort] = 5060;
+});
+} // namespace Register
+
 } // namespace mediakit
 
 #ifdef ENABLE_MEM_DEBUG

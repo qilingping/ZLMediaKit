@@ -406,6 +406,31 @@ extern const std::string kPlayTrack;
 //设置代理url，目前只支持http协议
 extern const std::string kProxyUrl;
 } // namespace Client
+
+namespace Dji {
+extern const std::string kAppName;
+extern const std::string kAppId;
+extern const std::string kAppKey;
+extern const std::string kAppLicense;
+extern const std::string kDeveloperAccount;
+}
+
+namespace Gb28181 {
+extern const std::string kDeviceId;
+extern const std::string kChannelId;
+extern const std::string kLocalIp;
+extern const std::string kLocalPort;
+extern const std::string kSipTransportType;
+extern const std::string kPublicIp;
+}
+
+namespace Register {
+extern const std::string kUasId;
+extern const std::string kUasIp;
+extern const std::string kUasPort;
+}
+
+
 } // namespace mediakit
 
 #endif /* COMMON_CONFIG_H */

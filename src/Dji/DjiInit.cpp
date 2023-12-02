@@ -2,6 +2,8 @@
 
 #include "openssl/rsa.h"
 
+#include "Common/config.h"
+
 #include <iostream>
 
 namespace mediakit {
@@ -106,25 +108,23 @@ static edge_sdk::ErrorCode PrintConsoleFunc(const uint8_t* data, uint16_t dataLe
     return edge_sdk::kOk;
 }
 
-#define USER_APP_NAME "live"
-#define USER_APP_ID "140488"
-#define USER_APP_KEY "864ed43d1156a000e89c244017fd25c"
-#define USER_APP_LICENSE "GkIzGaYS0SwcQSeP9YqBTuuqGlBqgA1nsUZrW23rZ4bfN1/Y1T9g+9CdjkrsjUXkwnHcS3LhdjJx4NL8b2zeM5mihuIhGM4iSesztClRSaNdPpTXiwlosApf8Zzrvtv8hvU+SHgB52DqZxMIbK8QRjYIw2YTiNl0ruxIC9I0XmB0HmhCXR+8VdlVMPpCTaLuur322GklctKURzBNenEDPiwzNCwUHq4f/nBGTbZDCaPaME4xFEBcpI1YT3Q8Y+ZXMIDhN+ZFNZqcxBTvQkRrxJT1lUi2y9kzU20T/jMyXgUMTa7M3KsRxXt1lJSU6vzbvmfSu0FofxeZUzvSlT9maQ=="
-#define USER_DEVELOPER_ACCOUNT "1399028738@qq.com"
-
 static edge_sdk::ErrorCode InitOptions(edge_sdk::Options& option) {
     option.product_name = "Edge-1.0";
     option.vendor_name = "Vendor";
     option.serial_number = "SN0000100010101";
     option.firmware_version = {0, 1, 0, 0};
 
+    GET_CONFIG(std::string, appName, Dji::kAppName);
+	GET_CONFIG(std::string, appId, Dji::kAppId);
+    GET_CONFIG(std::string, appKey, Dji::kAppKey);
+    GET_CONFIG(std::string, appLicense, Dji::kAppLicense);
+	GET_CONFIG(std::string, developerAccount, Dji::kDeveloperAccount);
+
     edge_sdk::AppInfo app_info;
-    app_info.app_name =
-        std::string((char*)USER_APP_NAME, strlen(USER_APP_NAME));
-    app_info.app_id = std::string((char*)USER_APP_ID, strlen(USER_APP_ID));
-    app_info.app_key = std::string((char*)USER_APP_KEY, strlen(USER_APP_KEY));
-    app_info.app_license =
-        std::string((char*)USER_APP_LICENSE, strlen(USER_APP_LICENSE));
+    app_info.app_name = appName;
+    app_info.app_id = appId;
+    app_info.app_key = appKey;
+    app_info.app_license =  appLicense;
 
     option.app_info = app_info;
     edge_sdk::LoggerConsole console = {edge_sdk::kLevelDebug, PrintConsoleFunc, true};

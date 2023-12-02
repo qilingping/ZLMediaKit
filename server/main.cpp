@@ -26,6 +26,9 @@
 #include "Rtp/RtpServer.h"
 #include "WebApi.h"
 #include "WebHook.h"
+#include "Uac.h"
+
+#include <memory>
 
 #if defined(ENABLE_WEBRTC)
 #include "../webrtc/WebRtcTransport.h"
@@ -412,6 +415,10 @@ int start_main(int argc,char *argv[]) {
         installWebHook();
         InfoL << "已启动http hook 接口";
 
+        // 启动uac
+        Uac::instance()->start();
+        InfoL << "uac started...";
+
         //设置退出信号处理函数
         static semaphore sem;
         signal(SIGINT, [](int) {
@@ -434,6 +441,8 @@ int start_main(int argc,char *argv[]) {
     unInstallWebApi();
     unInstallWebHook();
     onProcessExited();
+
+    Uac::instance()->stop();
 
     //休眠1秒再退出，防止资源释放顺序错误
     InfoL << "程序退出中,请等待...";
