@@ -13,9 +13,10 @@ using namespace std::placeholders;
 
 namespace mediakit{
 
-CClientStream::CClientStream(CInviteSessionHandler* handler, std::shared_ptr<PlayParam> param)
+CClientStream::CClientStream(CInviteSessionHandler* handler, std::shared_ptr<PlayParam> param, toolkit::EventPoller::Ptr poller)
     : m_pClentHandler(handler)
     , m_stParam(param)
+    , m_poller(poller)
     , m_ssrc("123456")
 {
 
@@ -38,7 +39,7 @@ int32_t CClientStream::StartPlay()
     option.auto_close = false;
     option.enable_rtmp = true;
 
-    m_player = std::make_shared<PlayerProxy>(vhost, app, stream, option, retry_count);
+    m_player = std::make_shared<PlayerProxy>(vhost, app, stream, option, retry_count, m_poller);
 
     //开始播放，如果播放失败或者播放中止，将会自动重试若干次，默认一直重试
     m_player->setPlayCallbackOnce([=, this](const toolkit::SockException &ex) {
@@ -90,7 +91,7 @@ int32_t CClientStream::StartPlay()
 
     //被主动关闭拉流
     m_player->setOnClose([this](const toolkit::SockException &ex) {
-        m_pClentHandler->RemoveClientStream(m_stParam->strRequestId);
+        StopPlay();
     });
 
     m_player->play(url);
@@ -133,8 +134,9 @@ void CClientStream::startSendRtpRes(uint16_t localPort, const toolkit::SockExcep
 }
 
 
-CInviteSessionHandler::CInviteSessionHandler(resip::DialogUsageManager* dum)
+CInviteSessionHandler::CInviteSessionHandler(resip::DialogUsageManager* dum, toolkit::EventPoller::Ptr poller)
     : m_pDum(dum)
+    , m_poller(poller)
 {
     m_pDum->setInviteSessionHandler(this);
     m_pDum->getMasterProfile()->addSupportedMethod(resip::INVITE);
@@ -184,7 +186,6 @@ bool CInviteSessionHandler::ResponsePlay(std::shared_ptr<CClientStream> stream, 
 	playsdp.session().media() = stream->GetSdp()->session().media();
 	playsdp.session().media().front().clearAttribute("setup");
 	playsdp.session().media().front().clearAttribute("recvonly");
-    // 先写死主动
     if (param->strSetupWay == "1") {
         playsdp.session().media().front().addAttribute("setup", "active");
     } else if (param->strSetupWay == "2") {
@@ -246,7 +247,7 @@ void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle
 	param->audioSampleRate = "1";       //音频采样率"1".8K "2".14K "3".16K "4".32K
     param->iTimeout = 5;                       //超时时间
 
-    std::shared_ptr<CClientStream> client = std::make_shared<CClientStream>(this, param);
+    std::shared_ptr<CClientStream> client = std::make_shared<CClientStream>(this, param, m_poller);
     resip::SdpContents *pUasSdp = dynamic_cast<resip::SdpContents*>(sdp->clone());
     client->SetSdp(pUasSdp);
     client->SetServerInviteSessionHandle(handle);
@@ -288,6 +289,7 @@ void CInviteSessionHandler::onAnswer(resip::InviteSessionHandle handle, const re
 
 void CInviteSessionHandler::onTerminated(resip::InviteSessionHandle handle, resip::InviteSessionHandler::TerminatedReason reason, const resip::SipMessage* message)
 {
+    // handle->reject会在这里收到terminated
     if (message == nullptr) {
         WarnL << "message is nullptr";
         return;

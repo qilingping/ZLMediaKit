@@ -15,8 +15,9 @@
 
 namespace mediakit{
 
-CPagerMessageHandler::CPagerMessageHandler(resip::DialogUsageManager* dum)
+CPagerMessageHandler::CPagerMessageHandler(resip::DialogUsageManager* dum, toolkit::EventPoller::Ptr poller)
 	: m_pDum(dum)
+	, m_poller(poller)
 {
 	m_ulSN.store(1);
 

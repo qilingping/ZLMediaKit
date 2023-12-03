@@ -105,7 +105,9 @@ private:
     bool try_restart_liveview_ = false;
     time_t received_liveview_status_time_ = 0;
     edge_sdk::Liveview::LiveviewStatus liveview_status_ = 0;
-    std::shared_ptr<edge_sdk::Liveview> liveview_;
+    std::shared_ptr<edge_sdk::Liveview> liveview_ = nullptr;
+
+    bool play_success_ = false;
 
 private:
     toolkit::EventPoller::Ptr _poller;

@@ -46,7 +46,7 @@ class CInviteSessionHandler;
 class CClientStream	: public std::enable_shared_from_this<CClientStream>
 {
 public:
-	CClientStream(CInviteSessionHandler* handler, std::shared_ptr<PlayParam> param);
+	CClientStream(CInviteSessionHandler* handler, std::shared_ptr<PlayParam> param, toolkit::EventPoller::Ptr poller);
 	~CClientStream();
 
 	void SetSdp(resip::SdpContents* sdp) {m_pSdp = sdp;}
@@ -67,6 +67,9 @@ private:
 	resip::SdpContents* m_pSdp;
 	std::shared_ptr<PlayParam> m_stParam;
 
+	// player执行线程
+	toolkit::EventPoller::Ptr m_poller;
+
 private:	// stream 相关
 	std::shared_ptr<PlayerProxy> m_player;
 	MediaSource::Ptr m_mediaSource;
@@ -78,7 +81,7 @@ private:	// stream 相关
 class CInviteSessionHandler : public resip::InviteSessionHandler
 {
 public:
-	CInviteSessionHandler(resip::DialogUsageManager* dum);
+	CInviteSessionHandler(resip::DialogUsageManager* dum, toolkit::EventPoller::Ptr poller);
 	~CInviteSessionHandler();
 
 public:
@@ -88,7 +91,7 @@ public:
 
 private:
 	resip::DialogUsageManager* m_pDum;
-	std::function<void(std::shared_ptr<PlayParam>)> m_fnPlaycb;
+	toolkit::EventPoller::Ptr m_poller;
 
 	std::mutex m_muxClientStream;
 	std::unordered_map<std::string, std::shared_ptr<CClientStream> > m_mapClientStream;

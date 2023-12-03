@@ -7,27 +7,24 @@ namespace mediakit {
 DjiLivePlayer::DjiLivePlayer(const toolkit::EventPoller::Ptr &poller)
     : _poller(poller)
 {
-    WarnL << "new.....";
+    InfoL << "new.....";
 }
 
 DjiLivePlayer::~DjiLivePlayer()
 {
-
+    InfoL << "delete.....";
 }
 
 
 void DjiLivePlayer::play(const std::string &url)
 {
     WarnL << url;
-    if (!_video_track) {
-        _video_track = std::make_shared<H264Track>();
-    }
 
     setCameraSource(edge_sdk::Liveview::kCameraSourceWide);
 
     edge_sdk::ErrorCode errCode = liveInit(edge_sdk::Liveview::kCameraTypePayload, edge_sdk::Liveview::kStreamQuality720p);
     if (errCode != edge_sdk::kOk) {
-        _poller->async([this, errCode](){
+        _poller->async_first([this, errCode](){
             toolkit::SockException err(Err_other); 
             WarnL << "live view init failed, err:" << (uint32_t)errCode;
             _on_play_result(err);
@@ -38,7 +35,7 @@ void DjiLivePlayer::play(const std::string &url)
 
     errCode = liveStart();
     if (errCode != edge_sdk::kOk) {
-        _poller->async([this, errCode](){
+        _poller->async_first([this, errCode](){
             toolkit::SockException err(Err_other); 
             WarnL << "live view start failed, err:" << (uint32_t)errCode;
             _on_play_result(err);
@@ -46,25 +43,29 @@ void DjiLivePlayer::play(const std::string &url)
 
         return;
     }
-
-
-
-
 }
 
 void DjiLivePlayer::pause(bool pause)
 {
-
+    WarnL << "dji player not support pause";
 }
 
 void DjiLivePlayer::speed(float speed) 
 {
-
+    WarnL << "dji player not support speed";
 }
 
 void DjiLivePlayer::teardown()
 {
-    
+    WarnL << "dji player terdown";
+
+    if (liveview_) {
+        if (play_success_) {
+            liveview_->StopH264Stream();
+        }
+
+        liveview_->DeInit();
+    }
 }
 
 edge_sdk::ErrorCode DjiLivePlayer::setCameraSource(edge_sdk::Liveview::CameraSource source)
@@ -74,7 +75,7 @@ edge_sdk::ErrorCode DjiLivePlayer::setCameraSource(edge_sdk::Liveview::CameraSou
 
 float DjiLivePlayer::getPacketLossRate(TrackType type) const
 {
-
+    return (float)0.0;
 }
 
 
@@ -94,6 +95,20 @@ void DjiLivePlayer::setMediaSource(const MediaSource::Ptr &src)
 
 edge_sdk::ErrorCode DjiLivePlayer::streamCallback(const uint8_t* data, size_t len) 
 {
+    // 创建h.264 track
+    if (!_video_track) {
+        _video_track = std::make_shared<H264Track>();
+    }
+
+    play_success_ = true;
+
+    // play success
+    _poller->async([this](){
+        WarnL << "live view start success, call play result";
+        toolkit::SockException err; 
+        _on_play_result(err);
+    });
+
     // 0x00 0x00 0x00 0x01 0x67 ...
     H264Frame::Ptr frame = FrameImp::create<H264Frame>();
     frame->_prefix_size = 4;

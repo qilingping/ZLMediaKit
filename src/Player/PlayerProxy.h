@@ -150,6 +150,8 @@ private:
     std::atomic<uint64_t> _live_secs;
 
     std::atomic<uint64_t> _repull_count;
+
+    bool _play_failed;
 };
 
 } /* namespace mediakit */

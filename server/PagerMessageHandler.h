@@ -10,6 +10,8 @@
 
 #include <atomic> 
 
+#include "Poller/EventPoller.h"
+
 
 namespace mediakit{
 
@@ -25,7 +27,7 @@ public:
 class CPagerMessageHandler : public resip::ClientPagerMessageHandler, public resip::ServerPagerMessageHandler
 {
 public:
-	CPagerMessageHandler(resip::DialogUsageManager* dum);
+	CPagerMessageHandler(resip::DialogUsageManager* dum, toolkit::EventPoller::Ptr poller);
 	virtual ~CPagerMessageHandler();
 
 
@@ -45,6 +47,8 @@ public:
 
 private:
 	resip::DialogUsageManager* m_pDum;
+	toolkit::EventPoller::Ptr m_poller;
+
 	std::atomic<uint64_t> m_ulSN;
 };
 

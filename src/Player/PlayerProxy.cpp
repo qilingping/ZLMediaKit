@@ -47,6 +47,8 @@ PlayerProxy::PlayerProxy(
     _live_status = 1;
     _repull_count = 0;
     (*this)[Client::kWaitTrackReady] = false;
+
+    _play_failed = false;
 }
 
 void PlayerProxy::setPlayCallbackOnce(function<void(const SockException &ex)> cb) {
@@ -106,6 +108,10 @@ void PlayerProxy::play(const string &strUrlTmp) {
         auto strongSelf = weakSelf.lock();
         if (!strongSelf) {
             return;
+        }
+
+        if (err) {
+            strongSelf->_play_failed = true;
         }
 
         if (strongSelf->_on_play) {
@@ -181,7 +187,12 @@ void PlayerProxy::play(const string &strUrlTmp) {
         return;
     }
     _pull_url = strUrlTmp;
-    setDirectProxy();
+
+    if (!_play_failed) {
+        setDirectProxy();
+    } else {
+        ErrorL << "play failed, and don't set Direct Proxy";
+    } 
 }
 
 void PlayerProxy::setDirectProxy() {

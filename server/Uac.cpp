@@ -36,10 +36,10 @@ int32_t Uac::start()
 	}
 
     // 注册invite handler, 处理上级的invite请求
-    m_inviteHandler = std::make_shared<CInviteSessionHandler>(dum);
+    m_inviteHandler = std::make_shared<CInviteSessionHandler>(dum, m_poller);
 
     // 注册page message handler，处理上级的message消息，主要是catalog
-    m_pagerMessageHandler = std::make_shared<CPagerMessageHandler>(dum);
+    m_pagerMessageHandler = std::make_shared<CPagerMessageHandler>(dum, m_poller);
 
     // 向上级注册
     GET_CONFIG(std::string, uasId, Register::kUasId);
