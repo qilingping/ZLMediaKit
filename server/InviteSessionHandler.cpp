@@ -94,7 +94,9 @@ int32_t CClientStream::StartPlay()
         StopPlay();
     });
 
-    m_player->play(url);
+    m_poller->async([this, url]() {
+        m_player->play(url);
+    });
 }
 
 void CClientStream::StopPlay()
