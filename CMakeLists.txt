@@ -212,6 +212,9 @@ update_cached_list(MK_LINK_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/3rdpart/resip/l
 update_cached_list(MK_LINK_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/3rdpart/resip/lib/librutil.a)
 update_cached_list(MK_LINK_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/3rdpart/resip/lib/libsipdial.a)
 
+#tinyxml
+update_cached_list(MK_LINK_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/3rdpart/tinyxml2/lib/libtinyxml2.a)
+
 if (DISABLE_REPORT)
   update_cached_list(MK_COMPILE_DEFINITIONS DISABLE_REPORT)
 endif ()
@@ -457,6 +460,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/3rdpart/Edge-SDK/include)
 
 #for resip
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/3rdpart/resip/include)
+
+#for tinyxml
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/3rdpart/tinyxml2/include)
 
 add_subdirectory(3rdpart)
 

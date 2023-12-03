@@ -9,7 +9,6 @@
 #include "InviteSessionHandler.h"
 
 
-
 using namespace std::placeholders;
 
 namespace mediakit{
@@ -33,7 +32,7 @@ int32_t CClientStream::StartPlay()
     std::string app = "live";
     std::string stream = m_stParam->strRequestId;
     std::string url = "dji://liveview";
-    int32_t retry_count = -1;
+    int32_t retry_count = 0;    // 不重试
     ProtocolOption option;
     option.enable_audio = false;
     option.auto_close = false;
@@ -45,7 +44,11 @@ int32_t CClientStream::StartPlay()
     m_player->setPlayCallbackOnce([=, this](const toolkit::SockException &ex) {
         if (ex) {
             ErrorL << "play dji stream failed";
-            m_pClentHandler->RemoveClientStream(m_stParam->strRequestId);
+            std::shared_ptr<PlayResponseParam> res = std::make_shared<PlayResponseParam>();
+            res->bOk = false;
+            if (m_pClentHandler) {
+                m_pClentHandler->ResponsePlay(shared_from_this(), res);
+            } 
         } else {
             InfoL << "play dji live stream success";
 
@@ -99,6 +102,10 @@ void CClientStream::StopPlay()
         m_mediaSource->close(true);
         m_mediaSource->stopSendRtp(m_ssrc);
     }
+
+    if (m_pClentHandler) {
+        m_pClentHandler->RemoveClientStream(m_stParam->strRequestId);
+    } 
 }
 
 void CClientStream::startSendRtpRes(uint16_t localPort, const toolkit::SockException& ex)
@@ -224,6 +231,8 @@ void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle
 		return;
 	}
 
+    InfoL << "new invite, callid:" << strCallId;
+
     std::shared_ptr<PlayParam> param = std::make_shared<PlayParam>();
     param->strPlayType = "live";
     param->strRequestId = strCallId;
@@ -279,6 +288,11 @@ void CInviteSessionHandler::onAnswer(resip::InviteSessionHandle handle, const re
 
 void CInviteSessionHandler::onTerminated(resip::InviteSessionHandle handle, resip::InviteSessionHandler::TerminatedReason reason, const resip::SipMessage* message)
 {
+    if (message == nullptr) {
+        WarnL << "message is nullptr";
+        return;
+    }
+
     // 下级收到上级下发的bye
     std::string deviceId, uasid, callid;
     deviceId = message->header(resip::h_To).uri().user().c_str();

@@ -104,6 +104,8 @@ public :
 
 	bool UARegistration(std::string uasId, std::string uasIp, int32_t uasPort);
 
+	void SetRegisteCallback(std::function<void(bool)> cb) { m_registeCallback = cb; }
+
 public:
 	//Called when registration succeeds or each time it is successfully refreshed.
 	virtual void onSuccess(resip::ClientRegistrationHandle handle, const resip::SipMessage& response);
@@ -118,6 +120,8 @@ public:
 	virtual void onFlowTerminated(resip::ClientRegistrationHandle handle);
 private :
 	resip::DialogUsageManager* m_pDum;
+
+	std::function<void(bool)> m_registeCallback;
 };
 
 

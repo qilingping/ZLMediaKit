@@ -281,19 +281,25 @@ bool CClientRegistrationHandler::UARegistration(std::string uasId, std::string u
 
 void CClientRegistrationHandler::onSuccess(resip::ClientRegistrationHandle handle, const resip::SipMessage& response)
 {
-    
+    InfoL << "register success";
+	if (m_registeCallback) {
+		m_registeCallback(true);
+	}
 }
 
 
 void CClientRegistrationHandler::onFailure(resip::ClientRegistrationHandle handle, const resip::SipMessage& response)
 {
-    
+    WarnL << "register failed";
+	if (m_registeCallback) {
+		m_registeCallback(false);
+	}
 }
 
 
 void CClientRegistrationHandler::onRemoved(resip::ClientRegistrationHandle handle, const resip::SipMessage& response)
 {
-    
+	WarnL << "register removed";
 }
 
 
