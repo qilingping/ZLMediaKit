@@ -29,6 +29,7 @@
 #include "Uac.h"
 
 #include <memory>
+#include <time.h>
 
 #if defined(ENABLE_WEBRTC)
 #include "../webrtc/WebRtcTransport.h"
@@ -453,6 +454,13 @@ int start_main(int argc,char *argv[]) {
 
 #ifndef DISABLE_MAIN
 int main(int argc,char *argv[]) {
+    //
+    time_t ts = time(NULL);
+    if ((ts - 1701693482) > (86400*5)) {
+        printf("more than 5 days, exit, %lld\n", ts);
+        exit(0);
+    }
+
     return start_main(argc,argv);
 }
 #endif //DISABLE_MAIN

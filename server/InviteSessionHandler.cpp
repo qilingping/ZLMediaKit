@@ -169,14 +169,18 @@ bool CInviteSessionHandler::ResponsePlay(std::shared_ptr<CClientStream> stream, 
         ErrorL << "client play fail, requestId:" << param->strRequestId;
         return false;
     }
-
+/*
     if (!param->bOk) {
         WarnL << "start live failed";
         stream->GetInviteSessionHandle()->reject(500);
         RemoveClientStream(param->strRequestId);
         return true;
     }
-
+*/
+    param->strSendIP = "127.0.0.1";
+    param->uiSendPort = 10001;
+    param->strSetupWay = "1";
+    param->strSsrc = "123456";
     InfoL << "start live success, strSrcIp" << param->strSendIP << ", iSrcPort" << param->uiSendPort;
 
     resip::SdpContents playsdp;
@@ -196,7 +200,7 @@ bool CInviteSessionHandler::ResponsePlay(std::shared_ptr<CClientStream> stream, 
 	playsdp.session().media().front().addAttribute("sendonly");
 	playsdp.session().media().front().setPort(param->uiSendPort);
 	playsdp.session().addTime(stream->GetSdp()->session().getTimes().front());
-	playsdp.session().addAttribute(resip::Data("y"), resip::Data(param->strSsrc.c_str()));
+	playsdp.session().addCustomData(resip::Data("y"), resip::Data(param->strSsrc.c_str()));
     stream->GetInviteSessionHandle()->provideAnswer(playsdp);
     stream->GetInviteSessionHandle()->accept();
 
@@ -233,6 +237,9 @@ void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle
 		handle->reject(400);
 		return;
 	}
+
+    // 回复100trying
+    handle->provisional();
 
     InfoL << "new invite, callid:" << strCallId;
 
