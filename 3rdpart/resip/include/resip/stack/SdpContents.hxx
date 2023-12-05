@@ -859,6 +859,7 @@ class SdpContents : public Contents
                   std::list<Bandwidth> mBandwidths;
                   Encryption mEncryption;
                   AttributeHelper mAttributeHelper;
+                  std::map<Data, Data> mCustomData;
 
                   bool mRtpMapDone;
                   typedef HashMap<int, Codec> RtpMap;
@@ -1120,6 +1121,8 @@ class SdpContents : public Contents
             std::shared_ptr<TrickleIceContents> makeIceFragment(const Data& fragment,
                unsigned int lineIndex, const Data& mid);
 
+            void addCustomData(const Data& key, const Data& value = Data::Empty);
+
          private:
             int mVersion;
             Origin mOrigin;
@@ -1137,6 +1140,8 @@ class SdpContents : public Contents
             Timezones mTimezones;
             Encryption mEncryption;
             AttributeHelper mAttributeHelper;
+
+            std::map<Data, Data> mCustomData;
 
             friend class SdpContents;
       };

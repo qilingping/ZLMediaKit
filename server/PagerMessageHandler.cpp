@@ -121,13 +121,10 @@ void CPagerMessageHandler::onMessageArrived(resip::ServerPagerMessageHandle hand
 		return;
 	}
 
+	handle->send(handle->accept(200));
+
 	std::string content;
 	retCode = processMessage(content, message);
-	if (retCode == 0){
-		handle->send(handle->accept(200));
-	} else{
-		handle->send(handle->accept(retCode));
-	}
 }
 
 int CPagerMessageHandler::processMessage(std::string& contents, const resip::SipMessage& message)
@@ -146,13 +143,19 @@ int CPagerMessageHandler::processMessage(std::string& contents, const resip::Sip
 	std::string fromIp = message.header(resip::h_From).uri().host().c_str();
 	int fromPort = message.header(resip::h_From).uri().port();
 
+	WarnL << "fromUser:" << fromUser << ", ip:" << fromIp << ", port:" << fromPort;
+
+	GET_CONFIG(std::string, uasId, Register::kUasId);
+	GET_CONFIG(std::string, uasIp, Register::kUasIp);
+	GET_CONFIG(uint32_t, uasPort, Register::kUasPort);
+
 	/*国标消息, 目前仅仅支持catalog*/
 	if (msgHeader.strMethod == "Query"){
 		if(msgHeader.strCmdType == "LoadStatus"){
 
 		} else if (msgHeader.strCmdType == "Catalog") {
 			InfoL << "catalog deviceId:" << msgHeader.strDeviceID;
-			SendCatalogList(fromUser, fromIp, fromPort, msgHeader.ulSN);
+			SendCatalogList(uasId, uasIp, uasPort, msgHeader.ulSN);
 			return 0;
 		}
     } else {

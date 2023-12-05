@@ -412,7 +412,7 @@ public:
     // 从mp4文件生成MediaSource
     static MediaSource::Ptr createFromMP4(const std::string &schema, const std::string &vhost, const std::string &app, const std::string &stream, const std::string &file_path = "", bool check_app = true);
 
-protected:
+public:
     //媒体注册
     void regist();
 

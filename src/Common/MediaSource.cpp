@@ -485,6 +485,10 @@ MediaSource::Ptr MediaSource::find(const string &vhost, const string &app, const
     if (src) {
         return src;
     }
+    src = MediaSource::find(DJI_SCHEMA, vhost, app, stream_id, from_mp4);
+    if (src) {
+        return src;
+    }
     src = MediaSource::find(RTSP_SCHEMA, vhost, app, stream_id, from_mp4);
     if (src) {
         return src;

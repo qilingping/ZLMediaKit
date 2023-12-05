@@ -8,6 +8,8 @@
 
 #include "InviteSessionHandler.h"
 
+#include "Common/config.h"
+
 
 using namespace std::placeholders;
 
@@ -29,7 +31,7 @@ CClientStream::~CClientStream()
 
 int32_t CClientStream::StartPlay()
 {
-    std::string vhost = "";
+    std::string vhost = "__defaultVhost__";
     std::string app = "live";
     std::string stream = m_stParam->strRequestId;
     std::string url = "dji://liveview";
@@ -77,13 +79,13 @@ int32_t CClientStream::StartPlay()
             } else {
                 args.is_udp = false;
             }
-            args.src_port = 10000;
+            args.src_port = 11111;
             args.pt = 96;
             args.use_ps = true;
             args.recv_stream_id = "";
             TraceL << "startSendRtp, pt " << int(args.pt) << " ps " << args.use_ps << " audio " << args.only_audio;
 
-            m_mediaSource->getOwnerPoller()->async([=]() mutable {
+            /*m_mediaSource->getOwnerPoller()*/m_poller->async([=]() mutable {
                 m_mediaSource->startSendRtp(args, std::bind(&CClientStream::startSendRtpRes, shared_from_this(), _1, _2));
             });
         }
@@ -91,7 +93,7 @@ int32_t CClientStream::StartPlay()
 
     //被主动关闭拉流
     m_player->setOnClose([this](const toolkit::SockException &ex) {
-        StopPlay();
+    //    StopPlay();
     });
 
     m_poller->async([this, url]() {
@@ -117,9 +119,17 @@ void CClientStream::startSendRtpRes(uint16_t localPort, const toolkit::SockExcep
 
     if (ex) {
         res->bOk = false;
+        ErrorL << ex;
     } else {
         res->bOk = true;
-        res->strSendIP = "";
+
+        GET_CONFIG(std::string, publicIp, Gb28181::kPublicIp);
+        GET_CONFIG(std::string, localIp, Gb28181::kLocalIp);
+        if (!publicIp.empty()) {
+            res->strSendIP = publicIp;
+        } else {
+            res->strSendIP = localIp;
+        }
         res->uiSendPort = localPort;
         res->strSsrc = "123456";
         if (m_stParam->strSetupWay == "1") {
@@ -169,18 +179,14 @@ bool CInviteSessionHandler::ResponsePlay(std::shared_ptr<CClientStream> stream, 
         ErrorL << "client play fail, requestId:" << param->strRequestId;
         return false;
     }
-/*
+
     if (!param->bOk) {
         WarnL << "start live failed";
         stream->GetInviteSessionHandle()->reject(500);
         RemoveClientStream(param->strRequestId);
         return true;
     }
-*/
-    param->strSendIP = "127.0.0.1";
-    param->uiSendPort = 10001;
-    param->strSetupWay = "1";
-    param->strSsrc = "123456";
+
     InfoL << "start live success, strSrcIp" << param->strSendIP << ", iSrcPort" << param->uiSendPort;
 
     resip::SdpContents playsdp;
@@ -227,7 +233,7 @@ void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle
     if(transport.find("TCP") == std::string::npos) {
         transport = "0";
     } else {
-        transport = "1";
+        transport = "2";
     }
         
     std::string strCallId;
@@ -239,7 +245,7 @@ void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle
 	}
 
     // 回复100trying
-    handle->provisional();
+    handle->provisional(100);
 
     InfoL << "new invite, callid:" << strCallId;
 

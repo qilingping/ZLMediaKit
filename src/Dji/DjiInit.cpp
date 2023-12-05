@@ -10,10 +10,11 @@ namespace mediakit {
 
 const char* kPathPublickKey = "/tmp/pub_key";
 const char* kPathPrivateKey = "/tmp/private_key";
+const char* kPathAppLicense = "/tmp/app_license";
 
 KeyStoreDefault::KeyStoreDefault() 
 {
-    memset(buffer, 0, 1500);
+    memset(buffer, 0, sizeof(buffer));
 
     if (ReadKeys()) {
         return;
@@ -50,12 +51,14 @@ bool KeyStoreDefault::ReadKeys()
         if (ret > 0) {
             len = ret;
         }
-        printf("public key read len: %ld\n", ret);
+        InfoL << "public key len read len:" << len;
         fclose(file);
     } else {
         return false;
     }
     rsa2048_public_key_ = std::make_shared<std::string>((char*)buffer, len);
+
+    memset(buffer, 0, sizeof(buffer));
 
     file = fopen(kPathPrivateKey, "rb");
     if (file) {
@@ -63,7 +66,7 @@ bool KeyStoreDefault::ReadKeys()
         if (ret > 0) {
             len = ret;
         }
-        printf("private key len read len: %d\n", len);
+        InfoL << "private key len read len:" << len;
         fclose(file);
     } else {
         return false;
@@ -91,7 +94,7 @@ bool KeyStoreDefault::GenerateKeys()
 
     uint8_t* PrivKey = buffer;
     key_len = i2d_RSAPrivateKey(rsa2048, &PrivKey);
-    printf("Private len=%d\n", key_len);
+    InfoL << "Private key len=", key_len;
     rsa2048_private_key_ = std::make_shared<std::string>((char*)buffer, key_len);
 
     FILE* privkey = fopen(kPathPrivateKey, "wb");
@@ -104,7 +107,8 @@ bool KeyStoreDefault::GenerateKeys()
 }
 
 static edge_sdk::ErrorCode PrintConsoleFunc(const uint8_t* data, uint16_t dataLen) {
-    printf("%s", data);
+    InfoL << "DJI | " << data;
+
     return edge_sdk::kOk;
 }
 
@@ -120,11 +124,31 @@ static edge_sdk::ErrorCode InitOptions(edge_sdk::Options& option) {
     GET_CONFIG(std::string, appLicense, Dji::kAppLicense);
 	GET_CONFIG(std::string, developerAccount, Dji::kDeveloperAccount);
 
+    // read app license
+    const char* licenseParh = kPathAppLicense;
+    if (!appLicense.empty()) {
+        licenseParh = appLicense.c_str();
+    }
+
+    char license_buffer[1500] = {0};
+    uint32_t len = 0;
+    FILE* file = fopen(licenseParh, "rb");
+    if (file) {
+        auto ret = fread(license_buffer, 1, sizeof(license_buffer), file);
+        if (ret > 0) {
+            len = ret;
+        }
+        InfoL << "app license len read len:" << len;
+        fclose(file);
+    } else {
+        ErrorL << "read app license file failed, kpath:" << licenseParh;
+    }
+
     edge_sdk::AppInfo app_info;
     app_info.app_name = appName;
     app_info.app_id = appId;
     app_info.app_key = appKey;
-    app_info.app_license =  appLicense;
+    app_info.app_license = std::string(license_buffer, len);
 
     option.app_info = app_info;
     edge_sdk::LoggerConsole console = {edge_sdk::kLevelDebug, PrintConsoleFunc, true};

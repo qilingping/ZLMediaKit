@@ -114,11 +114,6 @@ void PlayerProxy::play(const string &strUrlTmp) {
             strongSelf->_play_failed = true;
         }
 
-        if (strongSelf->_on_play) {
-            strongSelf->_on_play(err);
-            strongSelf->_on_play = nullptr;
-        }
-
         if (!err) {
             // 取消定时器,避免hls拉流索引文件因为网络波动失败重连成功后出现循环重试的情况
             strongSelf->_timer.reset();
@@ -138,6 +133,11 @@ void PlayerProxy::play(const string &strUrlTmp) {
         } else {
             // 达到了最大重试次数，回调关闭
             strongSelf->_on_close(err);
+        }
+
+        if (strongSelf->_on_play) {
+            strongSelf->_on_play(err);
+            strongSelf->_on_play = nullptr;
         }
     });
     setOnShutdown([weakSelf, strUrlTmp, piFailedCnt](const SockException &err) {

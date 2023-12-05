@@ -6,6 +6,8 @@ namespace mediakit {
 
 DjiLivePlayer::DjiLivePlayer(const toolkit::EventPoller::Ptr &poller)
     : _poller(poller)
+    , m_fp(nullptr)
+    , m_frame_write(0)
 {
     InfoL << "new.....";
 }
@@ -19,6 +21,17 @@ DjiLivePlayer::~DjiLivePlayer()
 void DjiLivePlayer::play(const std::string &url)
 {
     WarnL << url;
+
+/*      // test code read from file
+    m_poller = toolkit::EventPollerPool::Instance().getPoller();
+    m_send_timer = std::make_shared<toolkit::Timer>((float)0.33, [this]() -> bool {
+            testSendMedia();
+
+            return true;
+        }, m_poller);
+    
+    return ;
+*/
 
     setCameraSource(edge_sdk::Liveview::kCameraSourceWide);
 
@@ -98,16 +111,29 @@ edge_sdk::ErrorCode DjiLivePlayer::streamCallback(const uint8_t* data, size_t le
     // 创建h.264 track
     if (!_video_track) {
         _video_track = std::make_shared<H264Track>();
+
+        if (_media_src) {
+            _media_src->regist();
+        }
     }
 
-    play_success_ = true;
-
     // play success
-    _poller->async([this](){
-        WarnL << "live view start success, call play result";
-        toolkit::SockException err; 
-        _on_play_result(err);
-    });
+    if (!play_success_) {
+        // 仅仅通知一次
+        _poller->async([this](){
+            WarnL << "live view start success, call play result";
+            toolkit::SockException err; 
+            _on_play_result(err);
+        });
+
+        play_success_ = true;
+    }
+
+/*      // debug info
+    char header[128] = {0};
+    snprintf(header, 127, "header 0x%x 0x%x 0x%x 0x%x 0x%x, frame_len=%d\n", data[0], data[1], data[2], data[3], data[4], len);
+    InfoL << header;
+*/
 
     // 0x00 0x00 0x00 0x01 0x67 ...
     H264Frame::Ptr frame = FrameImp::create<H264Frame>();
@@ -170,6 +196,36 @@ void DjiLivePlayer::liveviewStatusCallback(const edge_sdk::Liveview::LiveviewSta
         }
     }
     received_liveview_status_time_ = now;
+}
+
+void DjiLivePlayer::testSendMedia()
+{
+    if (m_fp == nullptr) {
+        m_fp = fopen("/home/dji/ZLMediaKit/test_media/test_media_2.raw", "rb");
+
+        m_frame = new uint8_t[100*1024*1024];       // new 1M
+        int32_t ret = fread(m_frame, 23*1024*1024, 1, m_fp);
+    }
+
+    uint8_t prefixI[5] = {0x00, 0x00, 0x00, 0x01, 0x65};
+    uint8_t prefixP[5] = {0x00, 0x00, 0x00, 0x01, 0x61};
+
+    int32_t i = m_frame_write + 5;
+
+    for (i; i < 23*1024*1024; i++) {
+        if ((memcmp(&m_frame[i], prefixI, 5) == 0) || (memcmp(&m_frame[i], prefixP, 5) == 0)) {
+            break;
+        }
+    }
+
+    // 当前 i的位置从0x00 0x00开始  m_frame_write~i之间为一帧的大小
+    uint32_t frame_len = i - m_frame_write;
+
+//    WarnL << "pos i = " << i << ", m_frame_write=" << m_frame_write << ", frame_len=" << frame_len;
+
+    streamCallback((const uint8_t*)(m_frame + m_frame_write), frame_len);
+
+    m_frame_write = i;
 }
 
 }/* namespace mediakit */

@@ -27,6 +27,7 @@
 #include "WebApi.h"
 #include "WebHook.h"
 #include "Uac.h"
+#include "Dji/DjiInit.h"
 
 #include <memory>
 #include <time.h>
@@ -416,6 +417,10 @@ int start_main(int argc,char *argv[]) {
         installWebHook();
         InfoL << "已启动http hook 接口";
 
+        // 初始化dji edgesdk
+        edge_sdk::ErrorCode esdk_err = ESDKInit();
+        InfoL << "dji edge sdk init, err_code=" << esdk_err;
+
         // 启动uac
         Uac::instance()->start();
         InfoL << "uac started...";
@@ -444,6 +449,8 @@ int start_main(int argc,char *argv[]) {
     onProcessExited();
 
     Uac::instance()->stop();
+
+    ESDKDeInit();
 
     //休眠1秒再退出，防止资源释放顺序错误
     InfoL << "程序退出中,请等待...";

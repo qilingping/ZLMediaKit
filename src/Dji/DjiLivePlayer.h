@@ -3,8 +3,12 @@
 
 #include <string>
 #include <memory>
+#include <stdio.h>
+#include <string.h>
+
 #include "Util/TimeTicker.h"
 #include "Poller/Timer.h"
+#include "Poller/EventPoller.h"
 #include "Player/PlayerBase.h"
 #include "Extension/Frame.h"
 #include "Extension/Track.h"
@@ -99,6 +103,9 @@ private:
     enum {
         kLiveviewStatusTimeOutThreshold = 8,
     };
+
+private:
+    void testSendMedia();
     
 private:
 
@@ -117,6 +124,13 @@ private:
     PlayerBase::Event _on_play_result;
 
     Track::Ptr _video_track;
+
+    // test
+    toolkit::EventPoller::Ptr m_poller;
+    toolkit::Timer::Ptr m_send_timer;
+    FILE* m_fp;
+    uint8_t* m_frame;
+    uint32_t m_frame_write;
 };
 
 } /* namespace mediakit */
