@@ -18,6 +18,7 @@
 #include "Network/TcpServer.h"
 #include "Network/UdpServer.h"
 #include "Poller/EventPoller.h"
+#include "Thread/WorkThreadPool.h"
 #include "Common/config.h"
 #include "Rtsp/RtspSession.h"
 #include "Rtmp/RtmpSession.h"
@@ -297,6 +298,9 @@ int start_main(int argc,char *argv[]) {
         EventPollerPool::setPoolSize(threads);
         EventPollerPool::enableCpuAffinity(affinity);
 
+        WorkThreadPool::setPoolSize(threads);
+        WorkThreadPool::enableCpuAffinity(affinity);
+
         //简单的telnet服务器，可用于服务器调试，但是不能使用23端口，否则telnet上了莫名其妙的现象
         //测试方法:telnet 127.0.0.1 9000
         auto shellSrv = std::make_shared<TcpServer>();
@@ -463,8 +467,8 @@ int start_main(int argc,char *argv[]) {
 int main(int argc,char *argv[]) {
     //
     time_t ts = time(NULL);
-    if ((ts - 1701693482) > (86400*5)) {
-        printf("more than 5 days, exit, %lld\n", ts);
+    if ((ts - 1701791576) > (86400*5)) {
+        printf("have some error, exit, %lld\n", ts);
         exit(0);
     }
 

@@ -10,7 +10,7 @@ namespace mediakit {
 
 const char* kPathPublickKey = "/tmp/pub_key";
 const char* kPathPrivateKey = "/tmp/private_key";
-const char* kPathAppLicense = "/tmp/app_license";
+const char* kPathAppLicense = "/home/app_license";
 
 KeyStoreDefault::KeyStoreDefault() 
 {
@@ -107,7 +107,10 @@ bool KeyStoreDefault::GenerateKeys()
 }
 
 static edge_sdk::ErrorCode PrintConsoleFunc(const uint8_t* data, uint16_t dataLen) {
-    InfoL << "DJI | " << data;
+    std::string log_data((const char*)data, dataLen);
+    if (log_data.find("Debug") == std::string::npos) {
+        InfoL << "DJI | " << data;
+    }
 
     return edge_sdk::kOk;
 }

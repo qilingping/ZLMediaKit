@@ -1,4 +1,5 @@
 #include "Dji/DjiLivePlayer.h"
+#include "Common/config.h"
 
 using namespace toolkit;
 
@@ -6,6 +7,7 @@ namespace mediakit {
 
 DjiLivePlayer::DjiLivePlayer(const toolkit::EventPoller::Ptr &poller)
     : _poller(poller)
+    , _video_track(nullptr)
     , m_fp(nullptr)
     , m_frame_write(0)
 {
@@ -24,7 +26,7 @@ void DjiLivePlayer::play(const std::string &url)
 
 /*      // test code read from file
     m_poller = toolkit::EventPollerPool::Instance().getPoller();
-    m_send_timer = std::make_shared<toolkit::Timer>((float)0.33, [this]() -> bool {
+    m_send_timer = std::make_shared<toolkit::Timer>((float)0.033, [this]() -> bool {
             testSendMedia();
 
             return true;
@@ -33,9 +35,7 @@ void DjiLivePlayer::play(const std::string &url)
     return ;
 */
 
-    setCameraSource(edge_sdk::Liveview::kCameraSourceWide);
-
-    edge_sdk::ErrorCode errCode = liveInit(edge_sdk::Liveview::kCameraTypePayload, edge_sdk::Liveview::kStreamQuality720p);
+    edge_sdk::ErrorCode errCode = liveInit();
     if (errCode != edge_sdk::kOk) {
         _poller->async_first([this, errCode](){
             toolkit::SockException err(Err_other); 
@@ -48,9 +48,11 @@ void DjiLivePlayer::play(const std::string &url)
 
     errCode = liveStart();
     if (errCode != edge_sdk::kOk) {
+        WarnL << "live view start failed, err:" << (uint32_t)errCode;
+        teardown();
+
         _poller->async_first([this, errCode](){
             toolkit::SockException err(Err_other); 
-            WarnL << "live view start failed, err:" << (uint32_t)errCode;
             _on_play_result(err);
         });
 
@@ -72,19 +74,17 @@ void DjiLivePlayer::teardown()
 {
     WarnL << "dji player terdown";
 
-    if (liveview_) {
-        if (play_success_) {
-            liveview_->StopH264Stream();
-        }
 
-        liveview_->DeInit();
+    if (_media_src) {
+        InfoL << "media source unregist";
+        _media_src->unregist(); 
     }
+
+    liveStop();
+
+    liveUninit();
 }
 
-edge_sdk::ErrorCode DjiLivePlayer::setCameraSource(edge_sdk::Liveview::CameraSource source)
-{
-    
-}
 
 float DjiLivePlayer::getPacketLossRate(TrackType type) const
 {
@@ -103,6 +103,13 @@ std::vector<Track::Ptr> DjiLivePlayer::getTracks(bool ready /*= true*/) const
 void DjiLivePlayer::setMediaSource(const MediaSource::Ptr &src)
 { 
     _media_src = src; 
+
+    InfoL << "DjiLivePlayer::setMediaSource, enter";
+
+    if (_media_src) {
+        InfoL << "than media regist";
+        _media_src->regist(); 
+    }
 }
 
 
@@ -112,21 +119,12 @@ edge_sdk::ErrorCode DjiLivePlayer::streamCallback(const uint8_t* data, size_t le
     if (!_video_track) {
         _video_track = std::make_shared<H264Track>();
 
-        if (_media_src) {
-            _media_src->regist();
-        }
-    }
-
-    // play success
-    if (!play_success_) {
         // 仅仅通知一次
-        _poller->async([this](){
-            WarnL << "live view start success, call play result";
+        _poller->async_first([this](){
+            InfoL << "live view start success, call play result";
             toolkit::SockException err; 
             _on_play_result(err);
         });
-
-        play_success_ = true;
     }
 
 /*      // debug info
@@ -147,12 +145,20 @@ edge_sdk::ErrorCode DjiLivePlayer::streamCallback(const uint8_t* data, size_t le
     return edge_sdk::kOk;
 }
 
-edge_sdk::ErrorCode DjiLivePlayer::liveInit(edge_sdk::Liveview::CameraType type,
-                               edge_sdk::Liveview::StreamQuality quality) {
+edge_sdk::ErrorCode DjiLivePlayer::liveInit() {
+    // 获取摄像头参数
+    GET_CONFIG(uint32_t, cameraType, Dji::kCameraType);
+    GET_CONFIG(uint32_t, streamQuality, Dji::kStreamQuality);
+    GET_CONFIG(uint32_t, cameraSourceWide, Dji::kCameraSourceWide);
+
+    InfoL << "cameraType:" << cameraType << ", streamQuality:" << streamQuality << ", cameraSourceWide:" << cameraSourceWide;
+    
     auto callback_main =
         std::bind(&DjiLivePlayer::streamCallback, this, std::placeholders::_1,
                   std::placeholders::_2);
-    edge_sdk::Liveview::Options option = {type, quality, callback_main};
+    edge_sdk::Liveview::Options option = {(edge_sdk::Liveview::CameraType)cameraType, 
+                                            (edge_sdk::Liveview::StreamQuality)streamQuality, 
+                                            callback_main};
 
     liveview_ = edge_sdk::CreateLiveview();
 
@@ -161,13 +167,36 @@ edge_sdk::ErrorCode DjiLivePlayer::liveInit(edge_sdk::Liveview::CameraType type,
     liveview_->SubscribeLiveviewStatus(std::bind(
         &DjiLivePlayer::liveviewStatusCallback, this, std::placeholders::_1));
 
+    liveview_->SetCameraSource((edge_sdk::Liveview::CameraSource)cameraSourceWide);
+
     return rc;
+}
+
+void DjiLivePlayer::liveUninit()
+{
+    InfoL << "uninit";
+
+    if (liveview_) {
+        liveview_->DeInit();
+    }
 }
 
 edge_sdk::ErrorCode DjiLivePlayer::liveStart() {
 
     auto rc = liveview_->StartH264Stream();
+    if (rc == edge_sdk::kOk) {
+        play_success_ = true;
+    }
     return rc;
+}
+
+void DjiLivePlayer::liveStop()
+{
+    InfoL << "liveStop";
+
+    if (liveview_ &&play_success_) {
+        liveview_->StopH264Stream();
+    }
 }
 
 void DjiLivePlayer::liveviewStatusCallback(const edge_sdk::Liveview::LiveviewStatus& status) 

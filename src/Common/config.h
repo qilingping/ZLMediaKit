@@ -413,6 +413,9 @@ extern const std::string kAppId;
 extern const std::string kAppKey;
 extern const std::string kAppLicense;
 extern const std::string kDeveloperAccount;
+extern const std::string kCameraType;
+extern const std::string kStreamQuality;
+extern const std::string kCameraSourceWide;
 }
 
 namespace Gb28181 {

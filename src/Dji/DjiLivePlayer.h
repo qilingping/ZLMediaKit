@@ -89,12 +89,11 @@ private:
     void addTrackCompleted() { return; };
 
 private:
-    edge_sdk::ErrorCode liveInit(edge_sdk::Liveview::CameraType type,
-                             edge_sdk::Liveview::StreamQuality quality);
+    edge_sdk::ErrorCode liveInit();
+    void liveUninit();
 
     edge_sdk::ErrorCode liveStart();
-
-    edge_sdk::ErrorCode setCameraSource(edge_sdk::Liveview::CameraSource source);
+    void liveStop();
 
     edge_sdk::ErrorCode streamCallback(const uint8_t* data, size_t len);
 

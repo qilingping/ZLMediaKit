@@ -36,6 +36,8 @@ PlayerProxy::PlayerProxy(
     _tuple.stream = stream_id;
     _retry_count = retry_count;
 
+    InfoL << "vhost:" << vhost << ", app:" << app << ", stream_id:" << stream_id;
+
     setOnClose(nullptr);
     setOnConnect(nullptr);
     setOnDisconnect(nullptr);
@@ -102,6 +104,8 @@ void PlayerProxy::setTranslationInfo()
 }
 
 void PlayerProxy::play(const string &strUrlTmp) {
+    InfoL << "play:" << strUrlTmp;
+
     weak_ptr<PlayerProxy> weakSelf = shared_from_this();
     std::shared_ptr<int> piFailedCnt(new int(0)); // 连续播放失败次数
     setOnPlayResult([weakSelf, strUrlTmp, piFailedCnt](const SockException &err) {
@@ -208,15 +212,17 @@ void PlayerProxy::setDirectProxy() {
         mediaSource = std::make_shared<RtmpMediaSource>(_tuple);
     } else if (dynamic_pointer_cast<DjiLivePlayer>(_delegate)) {
         // rtmp拉流,rtmp强制直接代理
-        WarnL << "setDirectProxy dji.....";
-        mediaSource = std::make_shared<DjiMediaSource>(_tuple);
+        InfoL << "setDirectProxy dji.....";
+        mediaSource = std::make_shared<DjiMediaSource>(_tuple, getPoller());
     }
     if (mediaSource) {
+        InfoL << "set media source";
         setMediaSource(mediaSource);
     }
 }
 
 PlayerProxy::~PlayerProxy() {
+    InfoL << "delete...";
     _timer.reset();
     // 避免析构时, 忘记回调api请求
     if (_on_play) {
@@ -318,7 +324,7 @@ void PlayerProxy::onPlaySuccess() {
     auto videoTrack = getTrack(TrackVideo, false);
     if (videoTrack) {
         // 添加视频
-        WarnL << "videoTrack, videoTrack";
+        InfoL << "get videoTrack";
         _muxer->addTrack(videoTrack);
         // 视频数据写入_mediaMuxer
         videoTrack->addDelegate(_muxer);
@@ -327,6 +333,7 @@ void PlayerProxy::onPlaySuccess() {
     auto audioTrack = getTrack(TrackAudio, false);
     if (audioTrack) {
         // 添加音频
+        InfoL << "get audioTrack";
         _muxer->addTrack(audioTrack);
         // 音频数据写入_mediaMuxer
         audioTrack->addDelegate(_muxer);

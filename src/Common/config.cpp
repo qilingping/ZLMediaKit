@@ -363,6 +363,9 @@ const string kAppId = DJI_PROXY_FIELD "appId";
 const string kAppKey = DJI_PROXY_FIELD "appKey";
 const string kAppLicense = DJI_PROXY_FIELD "appLicense";
 const string kDeveloperAccount = DJI_PROXY_FIELD "developerAccount";
+const string kCameraType = DJI_PROXY_FIELD "cameraType";
+const string kStreamQuality = DJI_PROXY_FIELD "streamQuality";
+const string kCameraSourceWide = DJI_PROXY_FIELD "cameraSourceWide";
 
 static onceToken token([]() {
     mINI::Instance()[kAppName] = "";
@@ -370,6 +373,9 @@ static onceToken token([]() {
     mINI::Instance()[kAppKey] = "";
     mINI::Instance()[kAppLicense] = "";
     mINI::Instance()[kDeveloperAccount] = "";
+    mINI::Instance()[kCameraType] = 1;
+    mINI::Instance()[kStreamQuality] = 2;
+    mINI::Instance()[kCameraSourceWide] = 1;
 });
 } // namespace Dji
 

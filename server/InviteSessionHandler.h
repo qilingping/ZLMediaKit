@@ -87,7 +87,7 @@ public:
 public:
 
 	bool ResponsePlay(std::shared_ptr<CClientStream> stream, std::shared_ptr<PlayResponseParam> param);
-	void RemoveClientStream(std::string& requestId);
+	void RemoveClientStream(std::string& streamId);
 
 private:
 	resip::DialogUsageManager* m_pDum;

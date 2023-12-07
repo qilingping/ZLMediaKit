@@ -6,6 +6,8 @@
 #include "resip/dum/DialogUsageManager.hxx"
 #include "resip/stack/SipStack.hxx"
 
+#include "Thread/WorkThreadPool.h"
+
 
 namespace mediakit{
 
@@ -23,7 +25,7 @@ Uac::~Uac()
 
 int32_t Uac::start()
 {
-    m_poller = toolkit::EventPollerPool::Instance().getPoller();
+    m_poller = toolkit::WorkThreadPool::Instance().getPoller();
 
     m_sipServer = std::make_shared<SipServer>();
     m_sipServer->Initialize();

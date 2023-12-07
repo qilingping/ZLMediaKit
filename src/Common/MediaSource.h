@@ -416,9 +416,11 @@ public:
     //媒体注册
     void regist();
 
-private:
     // 媒体注销
     bool unregist();
+
+private:
+    
     // 触发媒体事件
     void emitEvent(bool regist);
 
