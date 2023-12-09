@@ -66,7 +66,7 @@ PlayerBase::Ptr PlayerBase::createPlayer(const EventPoller::Ptr &in_poller, cons
     }
 
     if (strcasecmp("dji", prefix.data()) == 0) {
-        return PlayerBase::Ptr(new DjiLivePlayer(poller), releasePlayer);
+    //    return PlayerBase::Ptr(new DjiLivePlayer(poller),);
     }
 
     throw std::invalid_argument("not supported play schema:" + url_in);

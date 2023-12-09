@@ -11,6 +11,7 @@
 #include "Util/logger.h"
 #include "Player/PlayerProxy.h"
 #include "Common/MediaSource.h"
+#include "Dji/DjiLivePlayer.h"
 
 #include "Poller/EventPoller.h"
 
@@ -35,7 +36,7 @@ typedef struct PlayParam
 typedef struct PlayResponseParam
 {
 	bool bOk;
-	std::string strRequestId;
+	std::string strStreamId;
 	std::string strSendIP;			// 本级收流端IP
 	unsigned int uiSendPort;			// 本级收流端端口
 	std::string strSsrc;
@@ -46,7 +47,7 @@ class CInviteSessionHandler;
 class CClientStream	: public std::enable_shared_from_this<CClientStream>
 {
 public:
-	CClientStream(CInviteSessionHandler* handler, std::shared_ptr<PlayParam> param, toolkit::EventPoller::Ptr poller);
+	CClientStream(CInviteSessionHandler* handler, std::shared_ptr<PlayParam> param);
 	~CClientStream();
 
 	void SetSdp(resip::SdpContents* sdp) {m_pSdp = sdp;}
@@ -71,8 +72,7 @@ private:
 	toolkit::EventPoller::Ptr m_poller;
 
 private:	// stream 相关
-	std::shared_ptr<PlayerProxy> m_player;
-	MediaSource::Ptr m_mediaSource;
+	std::shared_ptr<DjiLivePlayer> m_player;
 
 	std::string m_ssrc;
 };
@@ -93,7 +93,6 @@ private:
 	resip::DialogUsageManager* m_pDum;
 	toolkit::EventPoller::Ptr m_poller;
 
-	std::mutex m_muxClientStream;
 	std::unordered_map<std::string, std::shared_ptr<CClientStream> > m_mapClientStream;
 
 public:		// 继承自InviteSessionHandler

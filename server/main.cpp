@@ -298,9 +298,6 @@ int start_main(int argc,char *argv[]) {
         EventPollerPool::setPoolSize(threads);
         EventPollerPool::enableCpuAffinity(affinity);
 
-        WorkThreadPool::setPoolSize(threads);
-        WorkThreadPool::enableCpuAffinity(affinity);
-
         //简单的telnet服务器，可用于服务器调试，但是不能使用23端口，否则telnet上了莫名其妙的现象
         //测试方法:telnet 127.0.0.1 9000
         auto shellSrv = std::make_shared<TcpServer>();
@@ -422,8 +419,8 @@ int start_main(int argc,char *argv[]) {
         InfoL << "已启动http hook 接口";
 
         // 初始化dji edgesdk
-        edge_sdk::ErrorCode esdk_err = ESDKInit();
-        InfoL << "dji edge sdk init, err_code=" << esdk_err;
+    //    edge_sdk::ErrorCode esdk_err = ESDKInit();
+    //    InfoL << "dji edge sdk init, err_code=" << esdk_err;
 
         // 启动uac
         Uac::instance()->start();
@@ -454,7 +451,7 @@ int start_main(int argc,char *argv[]) {
 
     Uac::instance()->stop();
 
-    ESDKDeInit();
+//    ESDKDeInit();
 
     //休眠1秒再退出，防止资源释放顺序错误
     InfoL << "程序退出中,请等待...";

@@ -128,7 +128,7 @@ MediaSource::MediaSource(const string &schema, const MediaTuple& tuple): _tuple(
     _schema = schema;
     _create_stamp = time(NULL);
 
-    InfoL << "vhost:" << tuple.vhost << ", app:" << tuple.app << ", stream_id:" << tuple.stream;
+//    InfoL << "vhost:" << tuple.vhost << ", app:" << tuple.app << ", stream_id:" << tuple.stream;
 }
 
 MediaSource::~MediaSource() {

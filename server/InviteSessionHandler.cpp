@@ -15,10 +15,11 @@ using namespace std::placeholders;
 
 namespace mediakit{
 
-CClientStream::CClientStream(CInviteSessionHandler* handler, std::shared_ptr<PlayParam> param, toolkit::EventPoller::Ptr poller)
+CClientStream::CClientStream(CInviteSessionHandler* handler, std::shared_ptr<PlayParam> param)
     : m_pClentHandler(handler)
+    , m_pSdp(nullptr)
     , m_stParam(param)
-    , m_poller(poller)
+    , m_poller(nullptr)
     , m_ssrc("123456")
 {
     InfoL << "new...";
@@ -27,116 +28,133 @@ CClientStream::CClientStream(CInviteSessionHandler* handler, std::shared_ptr<Pla
 CClientStream::~CClientStream()
 {
     InfoL << "delete...";
+
+    if (m_pSdp != nullptr) {
+        delete m_pSdp;
+        m_pSdp = nullptr;
+    }
 }
 
 int32_t CClientStream::StartPlay()
 {
-    std::string vhost = "__defaultVhost__";
-    std::string app = "live";
-    std::string stream = m_stParam->strStreamId;
-    std::string url = "dji://liveview";
-    int32_t retry_count = 0;    // 不重试
+    InfoL << "start...";
+    if (m_stParam == nullptr) {
+        ErrorL << "start play param is nullptr";
+        return -1;
+    }
+
+    InfoL << "start play streamId:" << m_stParam->strStreamId;
+
+    // 负责媒体数据收发
+    m_poller = m_poller = toolkit::EventPollerPool::Instance().getPoller();
+
+    MediaTuple tuple;
+    tuple.vhost = "__defaultVhost__";
+    tuple.app = "live";
+    tuple.stream = m_stParam->strStreamId;
+
     ProtocolOption option;
     option.enable_audio = false;
     option.auto_close = false;
+    option.enable_rtsp = false;
     option.enable_rtmp = true;
+    option.enable_mp4 = false;
+    option.enable_fmp4 = false;
 
-    m_player = std::make_shared<PlayerProxy>(vhost, app, stream, option, retry_count);
+    m_player = std::make_shared<DjiLivePlayer>(m_poller);
 
-    //开始播放，如果播放失败或者播放中止，将会自动重试若干次，默认一直重试
-    m_player->setPlayCallbackOnce([=, this](const toolkit::SockException &ex) {
-        if (ex) {
-            ErrorL << "play dji stream failed, ex:" << ex;
+    uint32_t err = m_player->play(tuple, option);
+    if (err != 0) {
+        m_player->teardown();
+        if (m_pClentHandler) {
             std::shared_ptr<PlayResponseParam> res = std::make_shared<PlayResponseParam>();
             res->bOk = false;
-            if (m_pClentHandler) {
-                m_pClentHandler->ResponsePlay(shared_from_this(), res);
-            } 
-        } else {
-            InfoL << "play dji live stream success";
-
-            // 开启推流到gb上级
-            auto mediaSource = MediaSource::find(vhost, app, stream, 0);
-            if (!mediaSource) {
-                ErrorL << "can not find the source stream, vhost:" << vhost << ", app:" << app << ", stream_id:" << stream;
-                return;
-            }
-
-            MediaSourceEvent::SendRtpArgs args;
-            if (m_stParam->strSetupWay == "1") {
-                // 上级主动的话，本级就是被动
-                args.passive = true;
-            } else {
-                args.passive = false;
-            }
-            
-            args.dst_url = m_stParam->strReceiveIP;
-            args.dst_port = m_stParam->uiReceivePort;
-            args.ssrc_multi_send = false;
-            args.ssrc = m_ssrc;
-            if (m_stParam->strSetupWay == "0") {
-                args.is_udp = true;
-            } else {
-                args.is_udp = false;
-            }
-            args.src_port = 11111;
-            args.pt = 96;
-            args.use_ps = true;
-            args.recv_stream_id = "";
-            TraceL << "startSendRtp, pt " << int(args.pt) << " ps " << args.use_ps << " audio " << args.only_audio;
-
-            mediaSource->getOwnerPoller()->async([=]() mutable {
-                mediaSource->startSendRtp(args, std::bind(&CClientStream::startSendRtpRes, shared_from_this(), _1, _2));
-            });
+            res->strStreamId = m_stParam->strStreamId;
+            m_pClentHandler->ResponsePlay(shared_from_this(), res);
         }
+
+        return 0;
+    }
+
+    // dji sdk取流成功之后开启rtp推流
+    auto mediaSource = MediaSource::find(tuple.vhost, tuple.app, tuple.stream, 0);
+    if (!mediaSource) {
+        ErrorL << "can not find the source stream, vhost:" << tuple.vhost << ", app:" << tuple.app << ", stream_id:" << tuple.stream;
+        return 0;
+    }
+
+    MediaSourceEvent::SendRtpArgs args;
+    if (m_stParam->strSetupWay == "1") {
+        // 上级主动的话，本级就是被动
+        args.passive = true;
+    } else {
+        args.passive = false;
+    }
+    
+    args.dst_url = m_stParam->strReceiveIP;
+    args.dst_port = m_stParam->uiReceivePort;
+    args.ssrc_multi_send = false;
+    args.ssrc = m_ssrc;
+    if (m_stParam->strSetupWay == "0") {
+        args.is_udp = true;
+    } else {
+        args.is_udp = false;
+    }
+    args.src_port = 11111;
+    args.pt = 96;
+    args.use_ps = true;
+    args.recv_stream_id = "";
+    TraceL << "start send rtp, receive ip:" << args.dst_url << " ,port:" << args.dst_port << "src port:" << args.src_port
+            << ", udp:" << args.is_udp << ", passive:" << args.passive;
+
+    mediaSource->getOwnerPoller()->async([=]() mutable {
+        mediaSource->startSendRtp(args, std::bind(&CClientStream::startSendRtpRes, shared_from_this(), _1, _2));
     });
 
-    //被主动关闭拉流
-    m_player->setOnClose([this](const toolkit::SockException &ex) {
-    //    StopPlay();
-    });
-
-    InfoL << "start send play func";
-    m_poller->async([this, url]() {
-        m_player->play(url);
-    });
+    return 0;
 }
 
 void CClientStream::StopPlay()
 {
-    m_poller->async([this]() {
-        std::string vhost = "__defaultVhost__";
-        std::string app = "live";
-        std::string stream = m_stParam->strStreamId;
+    InfoL << "streamId:" << m_stParam->strStreamId;
 
-        auto mediaSource = MediaSource::find(vhost, app, stream, 0);
-        if (mediaSource) {
-        //    InfoL << "media source closing";
-        //    mediaSource->close(true);
-        //    InfoL << "media source closed";
-        //    mediaSource->unregist();
-        //    InfoL << "media source unregist";
-        //    m_mediaSource->stopSendRtp(m_ssrc);
+    std::string vhost = "__defaultVhost__";
+    std::string app = "live";
+    std::string stream = m_stParam->strStreamId;
 
-        //    InfoL << "stop send rtp";
-        }
+    auto mediaSource = MediaSource::find(vhost, app, stream, 0);
+    if (mediaSource) {
+        mediaSource->getOwnerPoller()->async([=]() mutable {
+            InfoL << "stop send rtp";
+            mediaSource->stopSendRtp("");
+        });
+    }
 
-        if (m_pClentHandler) {
-            m_pClentHandler->RemoveClientStream(m_stParam->strStreamId);
-        } 
-    });
+    if (m_player) {
+        m_player->teardown();
+    }
+    m_player.reset();
+
     
+    InfoL << "doing revome client";
+    if (m_pClentHandler) {
+        m_pClentHandler->RemoveClientStream(m_stParam->strStreamId);
+    } 
 }
 
 void CClientStream::startSendRtpRes(uint16_t localPort, const toolkit::SockException& ex)
 {
     std::shared_ptr<PlayResponseParam> res = std::make_shared<PlayResponseParam>();
 
+    InfoL << "start send rtp res, ex:" << ex;
+
     if (ex) {
         res->bOk = false;
+        res->strStreamId = m_stParam->strStreamId;
         ErrorL << ex;
     } else {
         res->bOk = true;
+        res->strStreamId = m_stParam->strStreamId;
 
         GET_CONFIG(std::string, publicIp, Gb28181::kPublicIp);
         GET_CONFIG(std::string, localIp, Gb28181::kLocalIp);
@@ -176,13 +194,12 @@ CInviteSessionHandler::CInviteSessionHandler(resip::DialogUsageManager* dum, too
 
 CInviteSessionHandler::~CInviteSessionHandler()
 {
-    std::lock_guard<std::mutex> g(m_muxClientStream);
-    m_mapClientStream.clear();
+    
 }
 
 void CInviteSessionHandler::RemoveClientStream(std::string& streamId)
 {
-    std::lock_guard<std::mutex> g(m_muxClientStream);
+    InfoL << " streamId:" << streamId;
     if (m_mapClientStream.find(streamId) != m_mapClientStream.end()) {
         m_mapClientStream.erase(streamId);
     }
@@ -191,14 +208,14 @@ void CInviteSessionHandler::RemoveClientStream(std::string& streamId)
 bool CInviteSessionHandler::ResponsePlay(std::shared_ptr<CClientStream> stream, std::shared_ptr<PlayResponseParam> param)
 {
     if (stream == nullptr) {
-        ErrorL << "client play fail, requestId:" << param->strRequestId;
+        ErrorL << "client play fail, requestId:" << param->strStreamId;
         return false;
     }
 
     if (!param->bOk) {
-        WarnL << "start live failed";
+        WarnL << "start live failed, streamId:" << param->strStreamId;
         stream->GetInviteSessionHandle()->reject(500);
-        RemoveClientStream(param->strRequestId);
+        RemoveClientStream(param->strStreamId);
         return true;
     }
 
@@ -231,15 +248,7 @@ bool CInviteSessionHandler::ResponsePlay(std::shared_ptr<CClientStream> stream, 
 // 接收上级的invite消息
 void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle, resip::InviteSession::OfferAnswerType oat, const resip::SipMessage& msg)
 {
-    // 目前只允许一路
-    {
-        std::lock_guard<std::mutex> g(m_muxClientStream);
-        if (m_mapClientStream.size() > 0) {
-            handle->reject(400);
-		    return;
-        }
-    }
-
+    InfoL << ".....................";
     resip::SdpContents *sdp = dynamic_cast<resip::SdpContents*>(msg.getContents());
     if (sdp == nullptr) {
         WarnL << "sdp is null";
@@ -259,11 +268,18 @@ void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle
     } else {
         transport = "2";
     }
+
+    if (m_mapClientStream.find(deviceId) != m_mapClientStream.end()) {
+        WarnL << "stream exist, streamId:" << deviceId;
+        handle->reject(400);
+        return;
+    }
         
     std::string strCallId;
 	if (msg.exists(resip::h_CallId)) {
 		strCallId = std::string(msg.header(resip::h_CallId).value().c_str());
 	} else {
+        WarnL << "not exist callid";
 		handle->reject(400);
 		return;
 	}
@@ -271,32 +287,31 @@ void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle
     // 回复100trying
     handle->provisional(100);
 
-    std::shared_ptr<PlayParam> param = std::make_shared<PlayParam>();
-    param->strPlayType = "live";
-    param->strRequestId = strCallId;
-    param->strStreamId = deviceId;
-    param->strReceiveIP = mediaIp;
-    param->uiReceivePort = mediaPort;
-    param->strStreamType = "MAIN";
-    param->vedioEncodingType = "PS";     // 码流编码类型,"1":PS, "2":H.264, "3": SVAC, "4":H.265
-	param->strSetupWay = transport;           // "0"-udp,"1"-tcp主动,2-tcp被动。passive or active 仅TCP模式下
-	param->audioEncodingType = "1";     //音频编码型，"1":G711A,"2":G711U,"3":SVAC,"4"G723.1:,"5":G729,"6":G722.1
-	param->audioSampleRate = "1";       //音频采样率"1".8K "2".14K "3".16K "4".32K
-    param->iTimeout = 5;                       //超时时间
+//    m_poller->async([=, this]() {
+        std::shared_ptr<PlayParam> param = std::make_shared<PlayParam>();
+        param->strPlayType = "live";
+        param->strRequestId = strCallId;
+        param->strStreamId = deviceId;
+        param->strReceiveIP = mediaIp;
+        param->uiReceivePort = mediaPort;
+        param->strStreamType = "MAIN";
+        param->vedioEncodingType = "PS";     // 码流编码类型,"1":PS, "2":H.264, "3": SVAC, "4":H.265
+        param->strSetupWay = transport;           // "0"-udp,"1"-tcp主动,2-tcp被动。passive or active 仅TCP模式下
+        param->audioEncodingType = "1";     //音频编码型，"1":G711A,"2":G711U,"3":SVAC,"4"G723.1:,"5":G729,"6":G722.1
+        param->audioSampleRate = "1";       //音频采样率"1".8K "2".14K "3".16K "4".32K
+        param->iTimeout = 5;                       //超时时间
 
-    std::shared_ptr<CClientStream> client = std::make_shared<CClientStream>(this, param, m_poller);
-    resip::SdpContents *pUasSdp = dynamic_cast<resip::SdpContents*>(sdp->clone());
-    client->SetSdp(pUasSdp);
-    client->SetServerInviteSessionHandle(handle);
-    
-    {
         InfoL << "new invite, streamId:" << param->strStreamId << ", callId:" << strCallId;
 
-        std::lock_guard<std::mutex> g(m_muxClientStream);
-        m_mapClientStream[param->strStreamId] = client;
-    }
+        std::shared_ptr<CClientStream> client = std::make_shared<CClientStream>(this, param);
+        resip::SdpContents *pUasSdp = dynamic_cast<resip::SdpContents*>(sdp->clone());
+        client->SetSdp(pUasSdp);
+        client->SetServerInviteSessionHandle(handle);
 
-    client->StartPlay();
+        m_mapClientStream[param->strStreamId] = client;
+
+        client->StartPlay();
+//    });   
 }
 
 void CInviteSessionHandler::onConnectedConfirmed(resip::InviteSessionHandle handle, const resip::SipMessage &msg)
@@ -333,21 +348,23 @@ void CInviteSessionHandler::onTerminated(resip::InviteSessionHandle handle, resi
     deviceId = message->header(resip::h_To).uri().user().c_str();
     uasid = message->header(resip::h_From).uri().user().c_str();
     callid = message->header(resip::h_CallId).value().c_str();
-    std::shared_ptr<CClientStream> stream;
-    if (m_mapClientStream.find(deviceId) != m_mapClientStream.end()) {
-        stream = m_mapClientStream[deviceId];
-    }
 
-    if (stream == nullptr) {
-        ErrorL << "onTerminated, stream not exist, streamId:" << deviceId;
-        return;
-    }
+//    m_poller->async([=, this]() {
+        std::shared_ptr<CClientStream> stream;
+        if (m_mapClientStream.find(deviceId) != m_mapClientStream.end()) {
+            stream = m_mapClientStream[deviceId];
+        }
 
-    InfoL << "onTerminated streamId:" << deviceId;
+        if (stream == nullptr) {
+            ErrorL << "onTerminated, stream not exist, streamId:" << deviceId;
+            return;
+        }
+        
+        InfoL << "onTerminated streamId:" << deviceId;
+        stream->StopPlay();
+ //   });
 
-    stream->StopPlay();
 
-    return;
 }
 
 /// called when MESSAGE message is received 
