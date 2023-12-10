@@ -37,7 +37,8 @@ CClientStream::~CClientStream()
 
 int32_t CClientStream::StartPlay()
 {
-    InfoL << "start...";
+    pthread_t threadId = pthread_self();
+    InfoL << threadId << " | start...";
     if (m_stParam == nullptr) {
         ErrorL << "start play param is nullptr";
         return -1;
@@ -104,10 +105,12 @@ int32_t CClientStream::StartPlay()
     args.pt = 96;
     args.use_ps = true;
     args.recv_stream_id = "";
-    TraceL << "start send rtp, receive ip:" << args.dst_url << " ,port:" << args.dst_port << "src port:" << args.src_port
+    InfoL << "start send rtp, receive ip:" << args.dst_url << " ,port:" << args.dst_port << "src port:" << args.src_port
             << ", udp:" << args.is_udp << ", passive:" << args.passive;
 
     mediaSource->getOwnerPoller()->async([=]() mutable {
+        pthread_t threadId = pthread_self();
+        InfoL << threadId << " | mediaSource start send rtp";
         mediaSource->startSendRtp(args, std::bind(&CClientStream::startSendRtpRes, shared_from_this(), _1, _2));
     });
 
@@ -116,7 +119,8 @@ int32_t CClientStream::StartPlay()
 
 void CClientStream::StopPlay()
 {
-    InfoL << "streamId:" << m_stParam->strStreamId;
+    pthread_t threadId = pthread_self();
+    InfoL << threadId << " | streamId:" << m_stParam->strStreamId;
 
     std::string vhost = "__defaultVhost__";
     std::string app = "live";
@@ -146,7 +150,8 @@ void CClientStream::startSendRtpRes(uint16_t localPort, const toolkit::SockExcep
 {
     std::shared_ptr<PlayResponseParam> res = std::make_shared<PlayResponseParam>();
 
-    InfoL << "start send rtp res, ex:" << ex;
+    pthread_t threadId = pthread_self();
+    InfoL << threadId << " |start send rtp res, ex:" << ex;
 
     if (ex) {
         res->bOk = false;
@@ -248,7 +253,8 @@ bool CInviteSessionHandler::ResponsePlay(std::shared_ptr<CClientStream> stream, 
 // 接收上级的invite消息
 void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle, resip::InviteSession::OfferAnswerType oat, const resip::SipMessage& msg)
 {
-    InfoL << ".....................";
+    pthread_t threadId = pthread_self();
+    InfoL <<  threadId <<  " |.....................";
     resip::SdpContents *sdp = dynamic_cast<resip::SdpContents*>(msg.getContents());
     if (sdp == nullptr) {
         WarnL << "sdp is null";
@@ -337,6 +343,8 @@ void CInviteSessionHandler::onAnswer(resip::InviteSessionHandle handle, const re
 
 void CInviteSessionHandler::onTerminated(resip::InviteSessionHandle handle, resip::InviteSessionHandler::TerminatedReason reason, const resip::SipMessage* message)
 {
+    pthread_t threadId = pthread_self();
+    InfoL << threadId << " | onTerminated...";
     // handle->reject会在这里收到terminated
     if (message == nullptr) {
         WarnL << "message is nullptr";

@@ -178,10 +178,11 @@ public:
         (*_parser) << Option('v', "version", Option::ArgNone, nullptr, false, "显示版本号",
                              [](const std::shared_ptr<ostream> &stream, const string &arg) -> bool {
                                  //版本信息
-                                 *stream << "编译日期: " << BUILD_TIME << std::endl;
+                                /* *stream << "编译日期: " << BUILD_TIME << std::endl;
                                  *stream << "代码日期: " << COMMIT_TIME << std::endl;
                                  *stream << "当前git分支: " << BRANCH_NAME << std::endl;
-                                 *stream << "当前git hash值: " << COMMIT_HASH << std::endl;
+                                 *stream << "当前git hash值: " << COMMIT_HASH << std::endl;*/
+                                 *stream << "版本号:" << "v1210_0" << std::endl;
                                  throw ExitException();
                              });
 #endif
@@ -418,13 +419,14 @@ int start_main(int argc,char *argv[]) {
         installWebHook();
         InfoL << "已启动http hook 接口";
 
+        pthread_t threadId = pthread_self();
         // 初始化dji edgesdk
-    //    edge_sdk::ErrorCode esdk_err = ESDKInit();
-    //    InfoL << "dji edge sdk init, err_code=" << esdk_err;
+        edge_sdk::ErrorCode esdk_err = ESDKInit();
+        InfoL << "dji edge sdk init, err_code=" << esdk_err;
 
         // 启动uac
         Uac::instance()->start();
-        InfoL << "uac started...";
+        InfoL << threadId  << " |uac started...";
 
         //设置退出信号处理函数
         static semaphore sem;
@@ -451,7 +453,7 @@ int start_main(int argc,char *argv[]) {
 
     Uac::instance()->stop();
 
-//    ESDKDeInit();
+    ESDKDeInit();
 
     //休眠1秒再退出，防止资源释放顺序错误
     InfoL << "程序退出中,请等待...";
@@ -464,7 +466,7 @@ int start_main(int argc,char *argv[]) {
 int main(int argc,char *argv[]) {
     //
     time_t ts = time(NULL);
-    if ((ts - 1701791576) > (86400*5)) {
+    if ((ts - 1701791576) > (86400*7)) {
         printf("have some error, exit, %lld\n", ts);
         exit(0);
     }

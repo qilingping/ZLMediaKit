@@ -35,10 +35,10 @@ public:
     int32_t play(const MediaTuple& tuple, const ProtocolOption& option);
     void teardown();
 
-    Track::Ptr getVideoTrack() { return _video_track_; }
+    Track::Ptr getVideoTrack() { return _video_track; }
 
 private:
-    edge_sdk::ErrorCode Wxfx();
+    edge_sdk::ErrorCode liveInit();
     void liveUninit();
 
     edge_sdk::ErrorCode liveStart();
