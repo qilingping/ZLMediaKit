@@ -60,6 +60,7 @@ public:
 	resip::ServerInviteSessionHandle GetInviteSessionHandle() {return m_pHandle;}
 
 private:
+
 	void startSendRtpRes(uint16_t localPort, const toolkit::SockException& ex);
 
 private:
@@ -71,10 +72,9 @@ private:
 	// player执行线程
 	toolkit::EventPoller::Ptr m_poller;
 
-private:	// stream 相关
-	std::shared_ptr<DjiLivePlayer> m_player;
-
 	std::string m_ssrc;
+
+public:	// stream 相关
 };
 
 
@@ -89,11 +89,16 @@ public:
 	bool ResponsePlay(std::shared_ptr<CClientStream> stream, std::shared_ptr<PlayResponseParam> param);
 	void RemoveClientStream(std::string& streamId);
 
+	int32_t playDji(std::string& vhost, std::string& app, std::string& stream);
+
 private:
 	resip::DialogUsageManager* m_pDum;
 	toolkit::EventPoller::Ptr m_poller;
 
 	std::unordered_map<std::string, std::shared_ptr<CClientStream> > m_mapClientStream;
+
+private:
+	std::shared_ptr<DjiLivePlayer> m_player = nullptr;
 
 public:		// 继承自InviteSessionHandler
 	/// called when an initial INVITE or the intial response to an outoing invite  

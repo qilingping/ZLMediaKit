@@ -46,43 +46,20 @@ int32_t CClientStream::StartPlay()
 
     InfoL << "start play streamId:" << m_stParam->strStreamId;
 
-    // 负责媒体数据收发
-    m_poller = m_poller = toolkit::EventPollerPool::Instance().getPoller();
+    std::string vhost = "__defaultVhost__";
+    std::string app = "live";
+    std::string stream = m_stParam->strStreamId;
 
-    MediaTuple tuple;
-    tuple.vhost = "__defaultVhost__";
-    tuple.app = "live";
-    tuple.stream = m_stParam->strStreamId;
-
-    ProtocolOption option;
-    option.enable_audio = false;
-    option.auto_close = false;
-    option.enable_rtsp = false;
-    option.enable_rtmp = true;
-    option.enable_mp4 = false;
-    option.enable_fmp4 = false;
-
-    m_player = std::make_shared<DjiLivePlayer>(m_poller);
-
-    uint32_t err = m_player->play(tuple, option);
-    if (err != 0) {
-        m_player->teardown();
-        if (m_pClentHandler) {
-            std::shared_ptr<PlayResponseParam> res = std::make_shared<PlayResponseParam>();
-            res->bOk = false;
-            res->strStreamId = m_stParam->strStreamId;
-            m_pClentHandler->ResponsePlay(shared_from_this(), res);
-        }
-
-        return 0;
-    }
-
-    // dji sdk取流成功之后开启rtp推流
-    auto mediaSource = MediaSource::find(tuple.vhost, tuple.app, tuple.stream, 0);
+    // 先从mediasource中获取一把
+    auto mediaSource = MediaSource::find(vhost, app, stream, 0);
     if (!mediaSource) {
-        ErrorL << "can not find the source stream, vhost:" << tuple.vhost << ", app:" << tuple.app << ", stream_id:" << tuple.stream;
-        return 0;
+        ErrorL << "get media source failed, vhost:" << vhost << ", app:" << app << ", stream_id:" << stream;
+        return -1;
     }
+    
+    InfoL << "got media source, vhost:" << vhost << ", app:" << app << ", stream_id:" << stream;
+
+    // 进到这里就是获取到了mediasource
 
     MediaSourceEvent::SendRtpArgs args;
     if (m_stParam->strSetupWay == "1") {
@@ -130,21 +107,11 @@ void CClientStream::StopPlay()
     if (mediaSource) {
         mediaSource->getOwnerPoller()->async([=]() mutable {
             InfoL << "stop send rtp";
-            mediaSource->stopSendRtp("");
+            mediaSource->stopSendRtp(m_ssrc);
         });
     }
-
-    if (m_player) {
-        m_player->teardown();
-    }
-    m_player.reset();
-
-    
-    InfoL << "doing revome client";
-    if (m_pClentHandler) {
-        m_pClentHandler->RemoveClientStream(m_stParam->strStreamId);
-    } 
 }
+
 
 void CClientStream::startSendRtpRes(uint16_t localPort, const toolkit::SockException& ex)
 {
@@ -250,6 +217,38 @@ bool CInviteSessionHandler::ResponsePlay(std::shared_ptr<CClientStream> stream, 
     return true;
 }
 
+
+int32_t CInviteSessionHandler::playDji(std::string& vhost, std::string& app, std::string& stream)
+{
+    if (m_player == nullptr) {
+        InfoL << "new dji player";
+
+        MediaTuple tuple;
+        tuple.vhost = vhost;
+        tuple.app = app;
+        tuple.stream = stream;
+
+        ProtocolOption option;
+        option.enable_audio = false;
+        option.auto_close = false;
+        option.enable_rtsp = false;
+        option.enable_rtmp = true;
+        option.enable_mp4 = false;
+        option.enable_fmp4 = false;
+
+        m_player = std::make_shared<DjiLivePlayer>(tuple, option);
+    }
+
+    uint32_t err = m_player->play();
+    if (err != 0) {
+        ErrorL << "dji play failed";
+        return -1;
+    }
+
+    InfoL << "play success...";
+    return 0;
+}
+
 // 接收上级的invite消息
 void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle, resip::InviteSession::OfferAnswerType oat, const resip::SipMessage& msg)
 {
@@ -293,31 +292,41 @@ void CInviteSessionHandler::onNewSession(resip::ServerInviteSessionHandle handle
     // 回复100trying
     handle->provisional(100);
 
-//    m_poller->async([=, this]() {
-        std::shared_ptr<PlayParam> param = std::make_shared<PlayParam>();
-        param->strPlayType = "live";
-        param->strRequestId = strCallId;
-        param->strStreamId = deviceId;
-        param->strReceiveIP = mediaIp;
-        param->uiReceivePort = mediaPort;
-        param->strStreamType = "MAIN";
-        param->vedioEncodingType = "PS";     // 码流编码类型,"1":PS, "2":H.264, "3": SVAC, "4":H.265
-        param->strSetupWay = transport;           // "0"-udp,"1"-tcp主动,2-tcp被动。passive or active 仅TCP模式下
-        param->audioEncodingType = "1";     //音频编码型，"1":G711A,"2":G711U,"3":SVAC,"4"G723.1:,"5":G729,"6":G722.1
-        param->audioSampleRate = "1";       //音频采样率"1".8K "2".14K "3".16K "4".32K
-        param->iTimeout = 5;                       //超时时间
+    InfoL << "new invite, streamId:" << deviceId;
 
-        InfoL << "new invite, streamId:" << param->strStreamId << ", callId:" << strCallId;
+    // 先保证dji player成功
+    std::string vhost = "__defaultVhost__";
+    std::string app = "live";
+    std::string stream = deviceId; 
+    playDji(vhost, app, stream);
 
-        std::shared_ptr<CClientStream> client = std::make_shared<CClientStream>(this, param);
-        resip::SdpContents *pUasSdp = dynamic_cast<resip::SdpContents*>(sdp->clone());
-        client->SetSdp(pUasSdp);
-        client->SetServerInviteSessionHandle(handle);
+    std::shared_ptr<PlayParam> param = std::make_shared<PlayParam>();
+    param->strPlayType = "live";
+    param->strRequestId = strCallId;
+    param->strStreamId = deviceId;
+    param->strReceiveIP = mediaIp;
+    param->uiReceivePort = mediaPort;
+    param->strStreamType = "MAIN";
+    param->vedioEncodingType = "PS";     // 码流编码类型,"1":PS, "2":H.264, "3": SVAC, "4":H.265
+    param->strSetupWay = transport;           // "0"-udp,"1"-tcp主动,2-tcp被动。passive or active 仅TCP模式下
+    param->audioEncodingType = "1";     //音频编码型，"1":G711A,"2":G711U,"3":SVAC,"4"G723.1:,"5":G729,"6":G722.1
+    param->audioSampleRate = "1";       //音频采样率"1".8K "2".14K "3".16K "4".32K
+    param->iTimeout = 5;                       //超时时间
 
-        m_mapClientStream[param->strStreamId] = client;
+    std::shared_ptr<CClientStream> client = std::make_shared<CClientStream>(this, param);
+    resip::SdpContents *pUasSdp = dynamic_cast<resip::SdpContents*>(sdp->clone());
+    client->SetSdp(pUasSdp);
+    client->SetServerInviteSessionHandle(handle);
 
-        client->StartPlay();
-//    });   
+    m_mapClientStream[param->strStreamId] = client;
+
+    int32_t err = client->StartPlay();
+    if (err != 0) {
+        // play failed
+        ErrorL <<  threadId <<  " | play failed";
+        handle->reject(500);
+        RemoveClientStream(param->strStreamId);
+    }  
 }
 
 void CInviteSessionHandler::onConnectedConfirmed(resip::InviteSessionHandle handle, const resip::SipMessage &msg)
@@ -343,8 +352,19 @@ void CInviteSessionHandler::onAnswer(resip::InviteSessionHandle handle, const re
 
 void CInviteSessionHandler::onTerminated(resip::InviteSessionHandle handle, resip::InviteSessionHandler::TerminatedReason reason, const resip::SipMessage* message)
 {
+/*
+enum TerminatedReason
+	 {
+	    Error, 
+	    Timeout,
+	    Replaced,
+	    LocalBye, 
+	    RemoteBye
+	 };
+*/
+
     pthread_t threadId = pthread_self();
-    InfoL << threadId << " | onTerminated...";
+    InfoL << threadId << " | onTerminated, reason = " << reason;
     // handle->reject会在这里收到terminated
     if (message == nullptr) {
         WarnL << "message is nullptr";
@@ -357,22 +377,20 @@ void CInviteSessionHandler::onTerminated(resip::InviteSessionHandle handle, resi
     uasid = message->header(resip::h_From).uri().user().c_str();
     callid = message->header(resip::h_CallId).value().c_str();
 
-//    m_poller->async([=, this]() {
-        std::shared_ptr<CClientStream> stream;
-        if (m_mapClientStream.find(deviceId) != m_mapClientStream.end()) {
-            stream = m_mapClientStream[deviceId];
-        }
+    std::shared_ptr<CClientStream> stream;
+    if (m_mapClientStream.find(deviceId) != m_mapClientStream.end()) {
+        stream = m_mapClientStream[deviceId];
+    }
 
-        if (stream == nullptr) {
-            ErrorL << "onTerminated, stream not exist, streamId:" << deviceId;
-            return;
-        }
-        
-        InfoL << "onTerminated streamId:" << deviceId;
-        stream->StopPlay();
- //   });
+    if (stream == nullptr) {
+        ErrorL << "onTerminated, stream not exist, streamId:" << deviceId;
+        return;
+    }
+    
+    InfoL << "onTerminated streamId:" << deviceId;
+    stream->StopPlay();
 
-
+    RemoveClientStream(deviceId);
 }
 
 /// called when MESSAGE message is received 

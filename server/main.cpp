@@ -182,7 +182,7 @@ public:
                                  *stream << "代码日期: " << COMMIT_TIME << std::endl;
                                  *stream << "当前git分支: " << BRANCH_NAME << std::endl;
                                  *stream << "当前git hash值: " << COMMIT_HASH << std::endl;*/
-                                 *stream << "版本号:" << "v1210_0" << std::endl;
+                                 *stream << "版本号:" << "v1211_0" << std::endl;
                                  throw ExitException();
                              });
 #endif

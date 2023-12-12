@@ -5,25 +5,13 @@ using namespace toolkit;
 
 namespace mediakit {
 
-DjiLivePlayer::DjiLivePlayer(const toolkit::EventPoller::Ptr &poller)
-    : _poller(poller)
-    , _video_track(nullptr)
-    , m_fp(nullptr)
+DjiLivePlayer::DjiLivePlayer(const MediaTuple& tuple, const ProtocolOption& option)
+    : m_fp(nullptr)
     , m_frame_write(0)
 {
     InfoL << "new.....";
-}
 
-DjiLivePlayer::~DjiLivePlayer()
-{
-    InfoL << "delete.....";
-}
-
-
-int32_t DjiLivePlayer::play(const MediaTuple& tuple, const ProtocolOption& option)
-{   
-    pthread_t threadId = pthread_self();
-    InfoL << threadId << " | dji play";
+    _poller = _poller == nullptr ? toolkit::EventPollerPool::Instance().getPoller() : _poller;
 
     _tuple = tuple;
     _option = option;
@@ -40,56 +28,87 @@ int32_t DjiLivePlayer::play(const MediaTuple& tuple, const ProtocolOption& optio
     _video_track->addDelegate(_muxer);
     // 添加完毕所有track，防止单track情况下最大等待3秒
     _muxer->addTrackCompleted();
-
-#if 0       // test code read from file
-    m_send_timer = std::make_shared<toolkit::Timer>((float)0.033, [this]() -> bool {
-            testSendMedia();
-
-            return true;
-        }, nullptr);
     
-    return 0;
-#endif
+}
 
-    edge_sdk::ErrorCode errCode = liveInit();
-    if (errCode != edge_sdk::kOk) {
-        ErrorL << "live init failed, errCode:" << errCode;
-        return -1;
-    }
+DjiLivePlayer::~DjiLivePlayer()
+{
+    InfoL << "delete.....";
 
-    errCode = liveStart();
-    if (errCode != edge_sdk::kOk) {
-        ErrorL << "live start failed, errCode:" << errCode;
-        return -1;
-    }
+    teardown();
+}
 
-    play_success_ = true;
+
+int32_t DjiLivePlayer::play()
+{   
+    _poller->async([this]() {
+        
+        pthread_t threadId = pthread_self();
+        InfoL << threadId << " | dji play";
+
+        if (play_success_) {
+            // 直接return
+            InfoL << threadId << " | dji playing";
+            return 0;
+        }
+
+    #if 0       // test code read from file
+        m_send_timer = std::make_shared<toolkit::Timer>((float)0.33, [this]() -> bool {
+                testSendMedia();
+
+                return true;
+            }, nullptr);
+        
+        return 0;
+    #endif
+
+        if (!init_) {
+            edge_sdk::ErrorCode errCode = liveInit();
+            if (errCode != edge_sdk::kOk) {
+                ErrorL << "live init failed, errCode:" << errCode;
+                return -1;
+            }
+
+            init_ = true;
+        }
+        
+
+        edge_sdk::ErrorCode errCode = liveStart();
+        if (errCode != edge_sdk::kOk) {
+            ErrorL << "live start failed, errCode:" << errCode;
+            return -1;
+        }
+
+    });
 
     return 0;
 }
 
 void DjiLivePlayer::teardown()
 {
-    pthread_t threadId = pthread_self();
-    InfoL << threadId << " | dji player terdown";
+    _poller->async([this](){
+        pthread_t threadId = pthread_self();
+        InfoL << threadId << " | dji player terdown";
 
-    liveStop();
-    liveUninit();
+        liveStop();
+        liveUninit();
 
-    if (_media_src) {
-        InfoL << "media source unregist";
-        _media_src->unregist(); 
-    }
-    _media_src.reset();
-    _muxer.reset();
-    _video_track.reset();
+        if (_media_src) {
+            InfoL << "media source unregist";
+            _media_src->unregist(); 
+        }
+        _media_src.reset();
+        _muxer.reset();
+        _video_track.reset();
+    });
+    
 }
 
 
 edge_sdk::ErrorCode DjiLivePlayer::streamCallback(const uint8_t* data, size_t len) 
 {
     pthread_t threadId = pthread_self();
-    InfoL <<  threadId << " | stream callback..";
+//    InfoL <<  threadId << " | stream callback..";
 /*      // debug info
     char header[128] = {0};
     snprintf(header, 127, "header 0x%x 0x%x 0x%x 0x%x 0x%x, frame_len=%d\n", data[0], data[1], data[2], data[3], data[4], len);
@@ -109,7 +128,7 @@ edge_sdk::ErrorCode DjiLivePlayer::streamCallback(const uint8_t* data, size_t le
             Track::Ptr video_track = strongSelf->getVideoTrack();
             if (video_track) {
                 pthread_t threadId = pthread_self();
-                InfoL << threadId << " | input frame..";
+            //    InfoL << threadId << " | input frame..";
                 video_track->inputFrame(frame);
             }
         }
@@ -150,7 +169,7 @@ void DjiLivePlayer::liveUninit()
     pthread_t threadId = pthread_self();
     InfoL << threadId << " | uninit, enter...";
 
-    if (liveview_) {
+    if (liveview_ && init_) {
         liveview_->DeInit();
     }
 
@@ -159,8 +178,12 @@ void DjiLivePlayer::liveUninit()
     InfoL << threadId << " | uninit, liveview reset leave...";
 }
 
-edge_sdk::ErrorCode DjiLivePlayer::liveStart() {
+edge_sdk::ErrorCode DjiLivePlayer::liveStart() 
+{
+    InfoL << "liveStart, stream:" << _tuple.stream;
 
+    play_success_ = false;
+    
     auto rc = liveview_->StartH264Stream();
     if (rc == edge_sdk::kOk) {
         play_success_ = true;
@@ -175,41 +198,47 @@ void DjiLivePlayer::liveStop()
     if (liveview_) {
         if (play_success_) {
             liveview_->StopH264Stream();
+            play_success_ = false;
         } else {
             InfoL << "play failed, do nothing, stream:" << _tuple.stream;
         }
     }
 }
 
-void DjiLivePlayer::liveviewStatusCallback(const edge_sdk::Liveview::LiveviewStatus& status) 
+void DjiLivePlayer::liveviewStatusCallback(const edge_sdk::Liveview::LiveviewStatus& st) 
 {
-    pthread_t threadId = pthread_self();
-    InfoL << threadId << "status = " << (int32_t)status << ", liveview_status_ = " << (int32_t)liveview_status_;
+    edge_sdk::Liveview::LiveviewStatus status = st;
+    _poller->async([this, status]() {
+        
+        pthread_t threadId = pthread_self();
+        InfoL << threadId << "status = " << (int32_t)status << ", liveview_status_ = " << (int32_t)liveview_status_;
 
-    auto now = time(NULL);
-    if (now >
-        kLiveviewStatusTimeOutThreshold + received_liveview_status_time_) {
-        try_restart_liveview_ = true;
-    }
-
-    if (status != liveview_status_) {
-        if (liveview_status_ == 0) {
+        auto now = time(NULL);
+        if (now >
+            kLiveviewStatusTimeOutThreshold + received_liveview_status_time_) {
             try_restart_liveview_ = true;
         }
-        liveview_status_ = status;
-    }
 
-    if (status != 0 && try_restart_liveview_) {
-        InfoL << threadId << "Restart h264 stream..., status = " << (int32_t)status;
-        auto rc = liveview_->StartH264Stream();
-        if (rc == edge_sdk::kOk) {
-            try_restart_liveview_ = false;
-        } else {
-            ErrorL << "restart failed: " << rc;
-            try_restart_liveview_ = true;
+        if (status != liveview_status_) {
+            if (liveview_status_ == 0) {
+                try_restart_liveview_ = true;
+            }
+            liveview_status_ = status;
         }
-    }
-    received_liveview_status_time_ = now;
+
+        if (status != 0 && try_restart_liveview_) {
+            InfoL << threadId << "Restart h264 stream..., status = " << (int32_t)status;
+            auto rc = liveStart();
+            if (rc == edge_sdk::kOk) {
+                try_restart_liveview_ = false;
+            } else {
+                ErrorL << "restart failed: " << rc;
+                try_restart_liveview_ = true;
+            }
+        }
+        received_liveview_status_time_ = now;
+    });
+
 }
 
 void DjiLivePlayer::testSendMedia()

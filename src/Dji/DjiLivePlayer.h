@@ -29,10 +29,10 @@ class DjiLivePlayer : public std::enable_shared_from_this<DjiLivePlayer> {
 public:
     using Ptr = std::shared_ptr<DjiLivePlayer>;
 
-    DjiLivePlayer(const toolkit::EventPoller::Ptr &poller);
+    DjiLivePlayer(const MediaTuple& tuple, const ProtocolOption& option);
     ~DjiLivePlayer();
 
-    int32_t play(const MediaTuple& tuple, const ProtocolOption& option);
+    int32_t play();
     void teardown();
 
     Track::Ptr getVideoTrack() { return _video_track; }
@@ -63,6 +63,7 @@ private:
     std::shared_ptr<edge_sdk::Liveview> liveview_ = nullptr;
 
     bool play_success_ = false;
+    bool init_ = false;
 
 private:
     toolkit::EventPoller::Ptr _poller;
