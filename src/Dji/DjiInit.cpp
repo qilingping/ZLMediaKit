@@ -8,8 +8,8 @@
 
 namespace mediakit {
 
-const char* kPathPublickKey = "/tmp/pub_key";
-const char* kPathPrivateKey = "/tmp/private_key";
+const char* kPathPublickKey = "/home/pub_key";
+const char* kPathPrivateKey = "/home/private_key";
 const char* kPathAppLicense = "/home/app_license";
 
 KeyStoreDefault::KeyStoreDefault() 

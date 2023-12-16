@@ -43,6 +43,14 @@ typedef struct PlayResponseParam
 	std::string strSetupWay;           // "0"-udp,"1"-tcp主动,2-tcp被动。passive or active 仅TCP模式下
 }PlayResponseParam;
 
+typedef struct SenderParam
+{
+	std::string strSendIP;		
+	unsigned int uiSendPort;			
+	std::string strSsrc;
+	std::string strSetupWay;           // "0"-udp,"1"-tcp主动,2-tcp被动。passive or active 仅TCP模式下
+}SenderParam;
+
 class CInviteSessionHandler;
 class CClientStream	: public std::enable_shared_from_this<CClientStream>
 {
@@ -51,14 +59,19 @@ public:
 	~CClientStream();
 
 	void SetSdp(resip::SdpContents* sdp) {m_pSdp = sdp;}
+	resip::SdpContents* GetSdp() {return m_pSdp;}
+
 	void SetServerInviteSessionHandle(resip::ServerInviteSessionHandle handle) { m_pHandle = handle; } 
+	resip::ServerInviteSessionHandle GetInviteSessionHandle() {return m_pHandle;}
+
+	void SetCallId(std::string callid) { m_callId = callid; }
+	std::string GetCallId() { return m_callId; }
+
+	SenderParam PreStart();
 
 	int32_t StartPlay();
 	void StopPlay();
 	
-	resip::SdpContents* GetSdp() {return m_pSdp;}
-	resip::ServerInviteSessionHandle GetInviteSessionHandle() {return m_pHandle;}
-
 private:
 
 	void startSendRtpRes(uint16_t localPort, const toolkit::SockException& ex);
@@ -67,12 +80,14 @@ private:
 	CInviteSessionHandler* m_pClentHandler;
 	resip::ServerInviteSessionHandle m_pHandle;
 	resip::SdpContents* m_pSdp;
+	std::string m_callId;
 	std::shared_ptr<PlayParam> m_stParam;
 
 	// player执行线程
 	toolkit::EventPoller::Ptr m_poller;
 
 	std::string m_ssrc;
+	int32_t m_localPort;
 
 public:	// stream 相关
 };
@@ -90,6 +105,12 @@ public:
 	void RemoveClientStream(std::string& streamId);
 
 	int32_t playDji(std::string& vhost, std::string& app, std::string& stream);
+
+private:
+	void getPlayParamsFromSDP(resip::SdpContents* sdp, std::shared_ptr<PlayParam>& param);
+	void setPlayParamsToSDP(resip::SdpContents*& sdp, std::shared_ptr<PlayResponseParam> param);
+
+	void responseInvite(resip::ServerInviteSessionHandle handle, resip::SdpContents* sdp, SenderParam param);
 
 private:
 	resip::DialogUsageManager* m_pDum;

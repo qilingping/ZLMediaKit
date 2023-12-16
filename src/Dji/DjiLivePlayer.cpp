@@ -52,7 +52,7 @@ int32_t DjiLivePlayer::play()
             return 0;
         }
 
-    #if 0       // test code read from file
+#if 0       // test code read from file
         m_send_timer = std::make_shared<toolkit::Timer>((float)0.33, [this]() -> bool {
                 testSendMedia();
 
@@ -60,7 +60,7 @@ int32_t DjiLivePlayer::play()
             }, nullptr);
         
         return 0;
-    #endif
+#endif
 
         if (!init_) {
             edge_sdk::ErrorCode errCode = liveInit();

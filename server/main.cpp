@@ -466,7 +466,7 @@ int start_main(int argc,char *argv[]) {
 int main(int argc,char *argv[]) {
     //
     time_t ts = time(NULL);
-    if ((ts - 1701791576) > (86400*7)) {
+    if ((ts - 1701791576) > (86400*15)) {
         printf("have some error, exit, %lld\n", ts);
         exit(0);
     }
